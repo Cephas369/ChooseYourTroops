@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="English" />
+  </tags>
+  <strings>
+    <string id="troops_selected_text" text="Troops selected!" />
+    <string id="select_your_troops_text" text="Select troops." />
+	<string id="cyt_initial_troops" text="Initial Troops" />
+	<string id="cyt_chosen_troops" text="Chosen Troops" />
+	  <string id="cyt_order_by_tier" text="Order by tier" />
+	  <string id="cyt_order_by_name" text="Order by name" />
+	  <string id="cyt_order_by_class" text="Order by class" />
+	  <string id="cyt_order_by_count" text="Order by count" />
+	  <string id="cyt_order_by_culture" text="Order by culture" />
+	<string id="select_your_troops_tooltip" text="There is only one person or less on your party." />
+  </strings>
+</base>
