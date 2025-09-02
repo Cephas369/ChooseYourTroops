@@ -14,5 +14,7 @@
 	<string id="cyt_order_by_class" text="Ordenar por classe" />
 	<string id="cyt_order_by_count" text="Ordenar por quantidade" />
 	<string id="cyt_order_by_culture" text="Ordenar por cultura" />
+    <string id="max_battle_size_support_option" text="Suporte tamanho máximo em batalha (LEIA DESCRIÇÃO)." />
+    <string id="max_battle_size_support_option_description" text="Permite escolher o número máximo de tropas permitidas pela engine em batalha (2040). (OBS: ele só aumenta o máximo no menu de seleção de tropas, outro mod é necessário para lidar com isso em batalha como o BattleSize Resized)" />
   </strings>
 </base>

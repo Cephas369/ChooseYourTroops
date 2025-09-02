@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TaleWorlds.CampaignSystem.Roster;
 using TaleWorlds.CampaignSystem.ViewModelCollection.GameMenu.TroopSelection;
 using TaleWorlds.CampaignSystem;
@@ -11,7 +9,6 @@ using TaleWorlds.Engine.GauntletUI;
 using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
-using TaleWorlds.MountAndBlade.View.Screens;
 using TaleWorlds.ScreenSystem;
 using SandBox.ViewModelCollection.Input;
 using SandBox.View.Map;
@@ -19,25 +16,26 @@ using SandBox.View.Menu;
 using TaleWorlds.GauntletUI.Data;
 using TaleWorlds.TwoDimension;
 using TaleWorlds.MountAndBlade.View;
-using TaleWorlds.LinQuick;
 using TaleWorlds.Core.ViewModelCollection.Selector;
 
 namespace ChooseYourTroops
 {
     public class CYTGameMenuTroopSelectionVM : ViewModel
     {
-        // Token: 0x06000DF7 RID: 3575 RVA: 0x00038978 File Offset: 0x00036B78
+
+        private Dictionary<TroopSelectionItemVM, int> _maxAmounts = new Dictionary<TroopSelectionItemVM, int>();
+        private List<TroopSelectionItemVM> _troopsCountedByTwo = new();
         public CYTGameMenuTroopSelectionVM(TroopRoster fullRoster, TroopRoster initialSelections, Func<CharacterObject, bool> canChangeChangeStatusOfTroop, Action<TroopRoster> onDone, int maxSelectableTroopCount, int minSelectableTroopCount)
         {
-            this._canChangeChangeStatusOfTroop = canChangeChangeStatusOfTroop;
-            this._onDone = onDone;
-            this._fullRoster = fullRoster;
-            this._initialSelections = initialSelections;
-            this._maxSelectableTroopCount = maxSelectableTroopCount;
-            this._minSelectableTroopCount = minSelectableTroopCount;
-            this.InitList();
-            this.RefreshValues();
-            this.OnCurrentSelectedAmountChange();
+            _canChangeChangeStatusOfTroop = canChangeChangeStatusOfTroop;
+            _onDone = onDone;
+            _fullRoster = fullRoster;
+            _initialSelections = initialSelections;
+            _maxSelectableTroopCount = maxSelectableTroopCount;
+            _minSelectableTroopCount = minSelectableTroopCount;
+            InitList();
+            RefreshValues();
+            OnCurrentSelectedAmountChange();
 
             var spriteData = UIResourceManager.SpriteData;
             _category = spriteData.SpriteCategories["ui_partyscreen"];
@@ -49,11 +47,11 @@ namespace ChooseYourTroops
         public override void RefreshValues()
         {
             base.RefreshValues();
-            this.TitleText = this._titleTextObject.ToString();
-            this.CurrentSelectedAmountTitle = this._chosenTitleTextObject.ToString();
-            this.DoneText = GameTexts.FindText("str_done", null).ToString();
-            this.CancelText = GameTexts.FindText("str_cancel", null).ToString();
-            this.ClearSelectionText = new TextObject("{=QMNWbmao}Clear Selection", null).ToString();
+            TitleText = _titleTextObject.ToString();
+            CurrentSelectedAmountTitle = _chosenTitleTextObject.ToString();
+            DoneText = GameTexts.FindText("str_done", null).ToString();
+            CancelText = GameTexts.FindText("str_cancel", null).ToString();
+            ClearSelectionText = new TextObject("{=QMNWbmao}Clear Selection", null).ToString();
 
             OrderByTierText = new TextObject("{=cyt_order_by_tier}Order by tier", null).ToString();
             OrderByNameText = new TextObject("{=cyt_order_by_name}Order by name", null).ToString();
@@ -61,151 +59,190 @@ namespace ChooseYourTroops
             OrderByClassText = new TextObject("{=cyt_order_by_class}Order by class", null).ToString();
             OrderByCultureText = new TextObject("{=cyt_order_by_culture}Order by culture", null).ToString();
 
-            this.InfantryAmount = _infantryAmount;
-            this.ArcherAmount = _archerAmount;
-            this.CavalryAmount = _cavalryAmount;
-            this.HorseArcherAmount = _horseArcherAmount;
-
-
-
+            InfantryAmount = _infantryAmount;
+            ArcherAmount = _archerAmount;
+            CavalryAmount = _cavalryAmount;
+            HorseArcherAmount = _horseArcherAmount;
         }
 
-        // Token: 0x06000DF9 RID: 3577 RVA: 0x00038A64 File Offset: 0x00036C64
         private void InitList()
         {
-            this.Troops = new MBBindingList<TroopSelectionItemVM>();
-            this._currentTotalSelectedTroopCount = 0;
-            foreach (TroopRosterElement troopRosterElement in this._fullRoster.GetTroopRoster())
+            Troops = new MBBindingList<TroopSelectionItemVM>();
+            _currentTotalSelectedTroopCount = 0;
+            foreach (TroopRosterElement troopRosterElement in _fullRoster.GetTroopRoster())
             {
                 
-                TroopSelectionItemVM troopSelectionItemVM = new TroopSelectionItemVM(troopRosterElement, new Action<TroopSelectionItemVM>(this.OnAddCount), new Action<TroopSelectionItemVM>(this.OnRemoveCount));
-                troopSelectionItemVM.IsLocked = (!this._canChangeChangeStatusOfTroop(troopRosterElement.Character) || troopRosterElement.Number - troopRosterElement.WoundedNumber <= 0);
-                this.Troops.Add(troopSelectionItemVM);
+                TroopSelectionItemVM troopSelectionItemVM = new TroopSelectionItemVM(troopRosterElement, new Action<TroopSelectionItemVM>(OnAddCount), new Action<TroopSelectionItemVM>(OnRemoveCount));
+                troopSelectionItemVM.IsLocked = (!_canChangeChangeStatusOfTroop(troopRosterElement.Character) || troopRosterElement.Number - troopRosterElement.WoundedNumber <= 0);
+
+                if (ChooseYourTroopsBehavior.DoesTroopCountByTwo(troopSelectionItemVM.Troop.Character))
+                {
+                    _troopsCountedByTwo.Add(troopSelectionItemVM);
+                    troopSelectionItemVM.Name += " (+2)";
+                }
                 
-                int troopCount = this._initialSelections.GetTroopCount(troopRosterElement.Character);
+                Troops.Add(troopSelectionItemVM);
+                
+                int troopCount = _initialSelections.GetTroopCount(troopRosterElement.Character);
                 if (troopCount > 0)
                 {
                     troopSelectionItemVM.CurrentAmount = troopCount;
-                    this._currentTotalSelectedTroopCount += troopCount;
+                    
+                    ChangeTotalSelectedAccordingToTroop(troopCount, troopSelectionItemVM);
 
                     for(int i = 0; i < troopCount; i++)
                         ChangeTroopValue(troopSelectionItemVM.Troop.Character.DefaultFormationClass, true);
                 }
             }
-            this.Troops.Sort(new CYTTroopItemComparer("class", false));
-            //this.Troops = (MBBindingList<TroopSelectionItemVM>)this.Troops.OrderBy(x=>x.Troop.Character.Name);
+            Troops.Sort(new CYTTroopItemComparer("class", false));
+            
+            _maxAmounts = _troopsCountedByTwo.ToDictionary(troop => troop, troop => int.Parse(troop.MaxAmount.ToString()));
+            //Troops = (MBBindingList<TroopSelectionItemVM>)Troops.OrderBy(x=>x.Troop.Character.Name);
         }
 
-        // Token: 0x06000DFA RID: 3578 RVA: 0x00038B64 File Offset: 0x00036D64
+        /** If configuration allows max battle size by 2000, troops with mounts should be counted as 2 */
+        private void ChangeTotalSelectedAccordingToTroop(int amount, TroopSelectionItemVM troopItem)
+        {
+            bool isEngineMaxTroopsEnabled = ChooseYourTroopsConfig.Instance is { SupportForMaximumTroops: true };
+            if (isEngineMaxTroopsEnabled)
+            {
+                if (ChooseYourTroopsBehavior.DoesTroopCountByTwo(troopItem.Troop.Character))
+                {
+                    _currentTotalSelectedTroopCount += amount * 2;
+                    
+                }
+                else
+                {
+                    _currentTotalSelectedTroopCount += amount;
+                }
+                
+                if (_currentTotalSelectedTroopCount > _maxSelectableTroopCount)
+                {
+                    IsEntireStackModifierActive = false;
+                    IsFiveStackModifierActive = false;
+                    OnRemoveCount(troopItem);
+                }
+            }
+            else
+            {
+                _currentTotalSelectedTroopCount += amount;
+            }
+
+            if (isEngineMaxTroopsEnabled)
+            {
+                foreach (var troopSelectionItemVm in _troopsCountedByTwo)
+                {
+                    if (_maxAmounts.TryGetValue(troopSelectionItemVm, out int initialMaxTroopAmount))
+                    {
+                        troopSelectionItemVm.MaxAmount = _currentTotalSelectedTroopCount + 2 > _maxSelectableTroopCount
+                        ? (troopSelectionItemVm.CurrentAmount == 0 ? 2 : troopSelectionItemVm.CurrentAmount)
+                        : initialMaxTroopAmount;
+                    }
+                }
+            }
+        }
+        
         private void OnRemoveCount(TroopSelectionItemVM troopItem)
         {
-
             if (troopItem.CurrentAmount > 0)
             {
                 int num = 1;
-                if (this.IsEntireStackModifierActive)
+                if (IsEntireStackModifierActive)
                 {
                     num = troopItem.CurrentAmount;
                 }
-                else if (this.IsFiveStackModifierActive)
+                else if (IsFiveStackModifierActive)
                 {
                     num = MathF.Min(troopItem.CurrentAmount, 5);
                 }
+                
                 troopItem.CurrentAmount -= num;
-                this._currentTotalSelectedTroopCount -= num;
+                ChangeTotalSelectedAccordingToTroop(-num, troopItem);
                 for (int i = 0; i < num; i++)
                     ChangeTroopValue(troopItem.Troop.Character.DefaultFormationClass, false);
             }
-            this.OnCurrentSelectedAmountChange();
+            OnCurrentSelectedAmountChange();
         }
 
-        // Token: 0x06000DFB RID: 3579 RVA: 0x00038BC4 File Offset: 0x00036DC4
         private void OnAddCount(TroopSelectionItemVM troopItem)
         {
-            
-
-            if (troopItem.CurrentAmount < troopItem.MaxAmount && this._currentTotalSelectedTroopCount < this._maxSelectableTroopCount)
+            if (troopItem.CurrentAmount < troopItem.MaxAmount && _currentTotalSelectedTroopCount < _maxSelectableTroopCount)
             {
                 int num = 1;
-                if (this.IsEntireStackModifierActive)
+                
+                if (IsEntireStackModifierActive)
                 {
-                    num = MathF.Min(troopItem.MaxAmount - troopItem.CurrentAmount, this._maxSelectableTroopCount - this._currentTotalSelectedTroopCount);
+                    num = MathF.Min(troopItem.MaxAmount - troopItem.CurrentAmount, _maxSelectableTroopCount - _currentTotalSelectedTroopCount);
                 }
-                else if (this.IsFiveStackModifierActive)
+                else if (IsFiveStackModifierActive)
                 {
-                    num = MathF.Min(MathF.Min(troopItem.MaxAmount - troopItem.CurrentAmount, this._maxSelectableTroopCount - this._currentTotalSelectedTroopCount), 5);
+                    num = MathF.Min(MathF.Min(troopItem.MaxAmount - troopItem.CurrentAmount, _maxSelectableTroopCount - _currentTotalSelectedTroopCount), 5);
                 }
                 troopItem.CurrentAmount += num;
-                this._currentTotalSelectedTroopCount += num;
-
+                
+                ChangeTotalSelectedAccordingToTroop(num, troopItem);
                 for(int i = 0; i < num; i++)
                     ChangeTroopValue(troopItem.Troop.Character.DefaultFormationClass, true);
             }
-            this.OnCurrentSelectedAmountChange();
+            OnCurrentSelectedAmountChange();
         }
 
-        // Token: 0x06000DFC RID: 3580 RVA: 0x00038C6C File Offset: 0x00036E6C
         private void OnCurrentSelectedAmountChange()
         {
-            foreach (TroopSelectionItemVM troopSelectionItemVM in this.Troops)
+            foreach (TroopSelectionItemVM troopSelectionItemVM in Troops)
             {
-                troopSelectionItemVM.IsRosterFull = (this._currentTotalSelectedTroopCount >= this._maxSelectableTroopCount);
+                troopSelectionItemVM.IsRosterFull = (_currentTotalSelectedTroopCount >= _maxSelectableTroopCount);
             }
-            GameTexts.SetVariable("LEFT", this._currentTotalSelectedTroopCount);
-            GameTexts.SetVariable("RIGHT", this._maxSelectableTroopCount);
-            this.CurrentSelectedAmountText = GameTexts.FindText("str_LEFT_over_RIGHT_in_paranthesis", null).ToString();
-            this.IsDoneEnabled = (this._currentTotalSelectedTroopCount <= this._maxSelectableTroopCount && this._currentTotalSelectedTroopCount >= this._minSelectableTroopCount);
+            GameTexts.SetVariable("LEFT", _currentTotalSelectedTroopCount);
+            GameTexts.SetVariable("RIGHT", _maxSelectableTroopCount);
+            CurrentSelectedAmountText = GameTexts.FindText("str_LEFT_over_RIGHT_in_paranthesis", null).ToString();
+            IsDoneEnabled = (_currentTotalSelectedTroopCount <= _maxSelectableTroopCount && _currentTotalSelectedTroopCount >= _minSelectableTroopCount);
         }
 
-        // Token: 0x06000DFD RID: 3581 RVA: 0x00038D28 File Offset: 0x00036F28
         private void OnDone()
         {
             TroopRoster troopRoster = TroopRoster.CreateDummyTroopRoster();
-            foreach (TroopSelectionItemVM troopSelectionItemVM in this.Troops)
+            foreach (TroopSelectionItemVM troopSelectionItemVM in Troops)
             {
                 if (troopSelectionItemVM.CurrentAmount > 0)
                 {
                     troopRoster.AddToCounts(troopSelectionItemVM.Troop.Character, troopSelectionItemVM.CurrentAmount, false, 0, 0, true, -1);
                 }
             }
-            this.IsEnabled = false;
-            Common.DynamicInvokeWithLog(this._onDone, new object[]
+            IsEnabled = false;
+            Common.DynamicInvokeWithLog(_onDone, new object[]
             {
                 troopRoster
             });
         }
 
-        // Token: 0x06000DFE RID: 3582 RVA: 0x00038DB8 File Offset: 0x00036FB8
         public void ExecuteDone()
         {
-            if (this._currentTotalSelectedTroopCount < this._maxSelectableTroopCount)
+            if (_currentTotalSelectedTroopCount < _maxSelectableTroopCount)
             {
                 string text = new TextObject("{=z2Slmx4N}There are still some room for more soldiers. Do you want to proceed?", null).ToString();
-                InformationManager.ShowInquiry(new InquiryData(this.TitleText, text, true, true, GameTexts.FindText("str_yes", null).ToString(), GameTexts.FindText("str_no", null).ToString(), new Action(this.OnDone), null, "", 0f, null, null, null), false, false);
+                InformationManager.ShowInquiry(new InquiryData(TitleText, text, true, true, GameTexts.FindText("str_yes", null).ToString(), GameTexts.FindText("str_no", null).ToString(), new Action(OnDone), null, "", 0f, null, null, null), false, false);
                 return;
             }
-            this.OnDone();
+            OnDone();
         }
 
-        // Token: 0x06000DFF RID: 3583 RVA: 0x00038E3A File Offset: 0x0003703A
         public void ExecuteCancel()
         {
-            this.IsEnabled = false;
+            IsEnabled = false;
         }
 
-        // Token: 0x06000E00 RID: 3584 RVA: 0x00038E43 File Offset: 0x00037043
         public void ExecuteReset()
         {
-            this.InitList();
-            this.OnCurrentSelectedAmountChange();
+            InitList();
+            OnCurrentSelectedAmountChange();
         }
 
-        // Token: 0x06000E01 RID: 3585 RVA: 0x00038E51 File Offset: 0x00037051
         public void ExecuteClearSelection()
         {
-            this.Troops.ApplyActionOnAllItems(delegate (TroopSelectionItemVM troopItem)
+            Troops.ApplyActionOnAllItems(delegate (TroopSelectionItemVM troopItem)
             {
-                if (this._canChangeChangeStatusOfTroop(troopItem.Troop.Character))
+                if (_canChangeChangeStatusOfTroop(troopItem.Troop.Character))
                 {
                     int currentAmount = troopItem.CurrentAmount;
                     for (int i = 0; i < currentAmount; i++)
@@ -218,27 +255,27 @@ namespace ChooseYourTroops
 
         public void OrderByTier()
         {
-            this.Troops.Sort(new CYTTroopItemComparer("tier", IsAscending));
+            Troops.Sort(new CYTTroopItemComparer("tier", IsAscending));
             RefreshValues();
         }
         public void OrderByClass()
         {
-            this.Troops.Sort(new CYTTroopItemComparer("class", IsAscending));
+            Troops.Sort(new CYTTroopItemComparer("class", IsAscending));
             RefreshValues();
         }
         public void OrderByName()
         {
-            this.Troops.Sort(new CYTTroopItemComparer("name", IsAscending));
+            Troops.Sort(new CYTTroopItemComparer("name", IsAscending));
             RefreshValues();
         }
         public void OrderByCount()
         {
-            this.Troops.Sort(new CYTTroopItemComparer("count", IsAscending));
+            Troops.Sort(new CYTTroopItemComparer("count", IsAscending));
             RefreshValues();
         }
         public void OrderByCulture()
         {
-            this.Troops.Sort(new CYTTroopItemComparer("culture", IsAscending));
+            Troops.Sort(new CYTTroopItemComparer("culture", IsAscending));
             RefreshValues();
         }
 
@@ -246,17 +283,17 @@ namespace ChooseYourTroops
         public override void OnFinalize()
         {
             base.OnFinalize();
-            InputKeyItemVM cancelInputKey = this.CancelInputKey;
+            InputKeyItemVM cancelInputKey = CancelInputKey;
             if (cancelInputKey != null)
             {
                 cancelInputKey.OnFinalize();
             }
-            InputKeyItemVM doneInputKey = this.DoneInputKey;
+            InputKeyItemVM doneInputKey = DoneInputKey;
             if (doneInputKey != null)
             {
                 doneInputKey.OnFinalize();
             }
-            InputKeyItemVM resetInputKey = this.ResetInputKey;
+            InputKeyItemVM resetInputKey = ResetInputKey;
             if (resetInputKey == null)
             {
                 return;
@@ -271,50 +308,50 @@ namespace ChooseYourTroops
             {
                 case FormationClass.Infantry:
                     if(isSum)
-                        this.InfantryAmount += 1;
+                        InfantryAmount += 1;
                     else
-                        this.InfantryAmount -= 1;
+                        InfantryAmount -= 1;
                     break;
                 case FormationClass.Ranged:
                     if (isSum)
-                        this.ArcherAmount += 1;
+                        ArcherAmount += 1;
                     else
-                        this.ArcherAmount -= 1;
+                        ArcherAmount -= 1;
                     break;
                 case FormationClass.Cavalry:
                     if (isSum)
-                        this.CavalryAmount += 1;
+                        CavalryAmount += 1;
                     else
-                        this.CavalryAmount -= 1;
+                        CavalryAmount -= 1;
                     break;
                 case FormationClass.HorseArcher:
                     if (isSum)
-                        this.HorseArcherAmount += 1;
+                        HorseArcherAmount += 1;
                     else
-                        this.HorseArcherAmount -= 1;
+                        HorseArcherAmount -= 1;
                     break;
             }
         }
         private void ExecuteToggleOrder()
         {
-            this.IsAscending = !this.IsAscending;
+            IsAscending = !IsAscending;
         }
         // Token: 0x06000E03 RID: 3587 RVA: 0x00038EA4 File Offset: 0x000370A4
         public void SetCancelInputKey(HotKey hotkey)
         {
-            this.CancelInputKey = InputKeyItemVM.CreateFromHotKey(hotkey, true);
+            CancelInputKey = InputKeyItemVM.CreateFromHotKey(hotkey, true);
         }
 
         // Token: 0x06000E04 RID: 3588 RVA: 0x00038EB3 File Offset: 0x000370B3
         public void SetDoneInputKey(HotKey hotkey)
         {
-            this.DoneInputKey = InputKeyItemVM.CreateFromHotKey(hotkey, true);
+            DoneInputKey = InputKeyItemVM.CreateFromHotKey(hotkey, true);
         }
 
         // Token: 0x06000E05 RID: 3589 RVA: 0x00038EC2 File Offset: 0x000370C2
         public void SetResetInputKey(HotKey hotkey)
         {
-            this.ResetInputKey = InputKeyItemVM.CreateFromHotKey(hotkey, true);
+            ResetInputKey = InputKeyItemVM.CreateFromHotKey(hotkey, true);
         }
 
         // Token: 0x1700048F RID: 1167
@@ -325,13 +362,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._doneInputKey;
+                return _doneInputKey;
             }
             set
             {
-                if (value != this._doneInputKey)
+                if (value != _doneInputKey)
                 {
-                    this._doneInputKey = value;
+                    _doneInputKey = value;
                     base.OnPropertyChangedWithValue<InputKeyItemVM>(value, "DoneInputKey");
                 }
             }
@@ -341,13 +378,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._isAscending;
+                return _isAscending;
             }
             set
             {
-                if (value != this._isAscending)
+                if (value != _isAscending)
                 {
-                    this._isAscending = value;
+                    _isAscending = value;
                     base.OnPropertyChangedWithValue(value, "IsAscending");
                 }
             }
@@ -361,13 +398,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._cancelInputKey;
+                return _cancelInputKey;
             }
             set
             {
-                if (value != this._cancelInputKey)
+                if (value != _cancelInputKey)
                 {
-                    this._cancelInputKey = value;
+                    _cancelInputKey = value;
                     base.OnPropertyChangedWithValue<InputKeyItemVM>(value, "CancelInputKey");
                 }
             }
@@ -381,13 +418,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._resetInputKey;
+                return _resetInputKey;
             }
             set
             {
-                if (value != this._resetInputKey)
+                if (value != _resetInputKey)
                 {
-                    this._resetInputKey = value;
+                    _resetInputKey = value;
                     base.OnPropertyChangedWithValue<InputKeyItemVM>(value, "ResetInputKey");
                 }
             }
@@ -401,13 +438,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._isEnabled;
+                return _isEnabled;
             }
             set
             {
-                if (value != this._isEnabled)
+                if (value != _isEnabled)
                 {
-                    this._isEnabled = value;
+                    _isEnabled = value;
                     base.OnPropertyChangedWithValue(value, "IsEnabled");
                 }
             }
@@ -421,13 +458,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._isDoneEnabled;
+                return _isDoneEnabled;
             }
             set
             {
-                if (value != this._isDoneEnabled)
+                if (value != _isDoneEnabled)
                 {
-                    this._isDoneEnabled = value;
+                    _isDoneEnabled = value;
                     base.OnPropertyChangedWithValue(value, "IsDoneEnabled");
                 }
             }
@@ -441,13 +478,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._troops;
+                return _troops;
             }
             set
             {
-                if (value != this._troops)
+                if (value != _troops)
                 {
-                    this._troops = value;
+                    _troops = value;
                     base.OnPropertyChangedWithValue<MBBindingList<TroopSelectionItemVM>>(value, "Troops");
                 }
             }
@@ -461,13 +498,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._doneText;
+                return _doneText;
             }
             set
             {
-                if (value != this._doneText)
+                if (value != _doneText)
                 {
-                    this._doneText = value;
+                    _doneText = value;
                     base.OnPropertyChangedWithValue<string>(value, "DoneText");
                 }
             }
@@ -481,13 +518,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._cancelText;
+                return _cancelText;
             }
             set
             {
-                if (value != this._cancelText)
+                if (value != _cancelText)
                 {
-                    this._cancelText = value;
+                    _cancelText = value;
                     base.OnPropertyChangedWithValue<string>(value, "CancelText");
                 }
             }
@@ -501,13 +538,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._titleText;
+                return _titleText;
             }
             set
             {
-                if (value != this._titleText)
+                if (value != _titleText)
                 {
-                    this._titleText = value;
+                    _titleText = value;
                     base.OnPropertyChangedWithValue<string>(value, "TitleText");
                 }
             }
@@ -521,13 +558,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._clearSelectionText;
+                return _clearSelectionText;
             }
             set
             {
-                if (value != this._clearSelectionText)
+                if (value != _clearSelectionText)
                 {
-                    this._clearSelectionText = value;
+                    _clearSelectionText = value;
                     base.OnPropertyChangedWithValue<string>(value, "ClearSelectionText");
                 }
             }
@@ -541,13 +578,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._currentSelectedAmountText;
+                return _currentSelectedAmountText;
             }
             set
             {
-                if (value != this._currentSelectedAmountText)
+                if (value != _currentSelectedAmountText)
                 {
-                    this._currentSelectedAmountText = value;
+                    _currentSelectedAmountText = value;
                     base.OnPropertyChangedWithValue<string>(value, "CurrentSelectedAmountText");
                 }
             }
@@ -561,13 +598,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._currentSelectedAmountTitle;
+                return _currentSelectedAmountTitle;
             }
             set
             {
-                if (value != this._currentSelectedAmountTitle)
+                if (value != _currentSelectedAmountTitle)
                 {
-                    this._currentSelectedAmountTitle = value;
+                    _currentSelectedAmountTitle = value;
                     base.OnPropertyChangedWithValue<string>(value, "CurrentSelectedAmountTitle");
                 }
             }
@@ -578,13 +615,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._infantryAmount;
+                return _infantryAmount;
             }
             set
             {
-                if (value != this._infantryAmount)
+                if (value != _infantryAmount)
                 {
-                    this._infantryAmount = value;
+                    _infantryAmount = value;
                     base.OnPropertyChangedWithValue(value, "InfantryAmount");
                 }
             }
@@ -594,13 +631,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._archerAmount;
+                return _archerAmount;
             }
             set
             {
-                if (value != this._archerAmount)
+                if (value != _archerAmount)
                 {
-                    this._archerAmount = value;
+                    _archerAmount = value;
                     base.OnPropertyChangedWithValue(value, "ArcherAmount");
                 }
             }
@@ -610,13 +647,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._cavalryAmount;
+                return _cavalryAmount;
             }
             set
             {
-                if (value != this._cavalryAmount)
+                if (value != _cavalryAmount)
                 {
-                    this._cavalryAmount = value;
+                    _cavalryAmount = value;
                     base.OnPropertyChangedWithValue(value, "CavalryAmount");
                 }
             }
@@ -626,13 +663,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._horseArcherAmount;
+                return _horseArcherAmount;
             }
             set
             {
-                if (value != this._horseArcherAmount)
+                if (value != _horseArcherAmount)
                 {
-                    this._horseArcherAmount = value;
+                    _horseArcherAmount = value;
                     base.OnPropertyChangedWithValue(value, "HorseArcherAmount");
                 }
             }
@@ -651,13 +688,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._sortSelector;
+                return _sortSelector;
             }
             set
             {
-                if (value != this._sortSelector)
+                if (value != _sortSelector)
                 {
-                    this._sortSelector = value;
+                    _sortSelector = value;
                     base.OnPropertyChangedWithValue<SelectorVM<SelectorItemVM>>(value, "SortSelector");
                 }
             }
@@ -669,13 +706,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._OrderByTierText;
+                return _OrderByTierText;
             }
             set
             {
-                if (value != this._OrderByTierText)
+                if (value != _OrderByTierText)
                 {
-                    this._OrderByTierText = value;
+                    _OrderByTierText = value;
                     base.OnPropertyChangedWithValue<string>(value, "OrderByTierText");
                 }
             }
@@ -686,13 +723,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._OrderByNameText;
+                return _OrderByNameText;
             }
             set
             {
-                if (value != this._OrderByNameText)
+                if (value != _OrderByNameText)
                 {
-                    this._OrderByNameText = value;
+                    _OrderByNameText = value;
                     base.OnPropertyChangedWithValue<string>(value, "OrderByNameText");
                 }
             }
@@ -704,13 +741,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._OrderByCountText;
+                return _OrderByCountText;
             }
             set
             {
-                if (value != this._OrderByCountText)
+                if (value != _OrderByCountText)
                 {
-                    this._OrderByCountText = value;
+                    _OrderByCountText = value;
                     base.OnPropertyChangedWithValue<string>(value, "OrderByCountText");
                 }
             }
@@ -722,13 +759,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._OrderByCultureText;
+                return _OrderByCultureText;
             }
             set
             {
-                if (value != this._OrderByCultureText)
+                if (value != _OrderByCultureText)
                 {
-                    this._OrderByCultureText = value;
+                    _OrderByCultureText = value;
                     base.OnPropertyChangedWithValue<string>(value, "OrderByCultureText");
                 }
             }
@@ -740,13 +777,13 @@ namespace ChooseYourTroops
         {
             get
             {
-                return this._OrderByClassText;
+                return _OrderByClassText;
             }
             set
             {
-                if (value != this._OrderByClassText)
+                if (value != _OrderByClassText)
                 {
-                    this._OrderByClassText = value;
+                    _OrderByClassText = value;
                     base.OnPropertyChangedWithValue<string>(value, "OrderByClassText");
                 }
             }
@@ -834,36 +871,36 @@ namespace ChooseYourTroops
         // Token: 0x06000138 RID: 312 RVA: 0x00009D10 File Offset: 0x00007F10
         public CYTGauntletMenuTroopSelectionView(TroopRoster fullRoster, TroopRoster initialSelections, Func<CharacterObject, bool> changeChangeStatusOfTroop, Action<TroopRoster> onDone, int maxSelectableTroopCount, int minSelectableTroopCount)
         {
-            this._onDone = onDone;
-            this._fullRoster = fullRoster;
-            this._initialSelections = initialSelections;
-            this._changeChangeStatusOfTroop = changeChangeStatusOfTroop;
-            this._maxSelectableTroopCount = maxSelectableTroopCount;
-            this._minSelectableTroopCount = minSelectableTroopCount;
+            _onDone = onDone;
+            _fullRoster = fullRoster;
+            _initialSelections = initialSelections;
+            _changeChangeStatusOfTroop = changeChangeStatusOfTroop;
+            _maxSelectableTroopCount = maxSelectableTroopCount;
+            _minSelectableTroopCount = minSelectableTroopCount;
         }
         public CYTGauntletMenuTroopSelectionView() => throw new NotImplementedException();
         // Token: 0x06000139 RID: 313 RVA: 0x00009D48 File Offset: 0x00007F48
         protected override void OnInitialize()
         {
             base.OnInitialize();
-            this._dataSource = new CYTGameMenuTroopSelectionVM(this._fullRoster, this._initialSelections, this._changeChangeStatusOfTroop, new Action<TroopRoster>(this.OnDone), this._maxSelectableTroopCount, this._minSelectableTroopCount)
+            _dataSource = new CYTGameMenuTroopSelectionVM(_fullRoster, _initialSelections, _changeChangeStatusOfTroop, new Action<TroopRoster>(OnDone), _maxSelectableTroopCount, _minSelectableTroopCount)
             {
                 IsEnabled = true
             };
-            this._dataSource.SetCancelInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Exit"));
-            this._dataSource.SetDoneInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Confirm"));
-            this._dataSource.SetResetInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Reset"));
+            _dataSource.SetCancelInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Exit"));
+            _dataSource.SetDoneInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Confirm"));
+            _dataSource.SetResetInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Reset"));
             base.Layer = new GauntletLayer(206, "GauntletLayer", false)
             {
                 Name = "MenuTroopSelection"
             };
-            this._layerAsGauntletLayer = (base.Layer as GauntletLayer);
+            _layerAsGauntletLayer = (base.Layer as GauntletLayer);
             base.Layer.InputRestrictions.SetInputRestrictions(true, InputUsageMask.All);
             base.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericPanelGameKeyCategory"));
             base.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericCampaignPanelsGameKeyCategory"));
-            this._movie = this._layerAsGauntletLayer.LoadMovie("CYTGameMenuTroopSelection", this._dataSource);
+            _movie = _layerAsGauntletLayer.LoadMovie("CYTGameMenuTroopSelection", _dataSource);
             base.Layer.IsFocusLayer = true;
-            ScreenManager.TrySetFocus(this._layerAsGauntletLayer);
+            ScreenManager.TrySetFocus(_layerAsGauntletLayer);
             base.MenuViewContext.AddLayer(base.Layer);
             
             MapScreen mapScreen;
@@ -878,7 +915,7 @@ namespace ChooseYourTroops
         {
             MapScreen.Instance.SetIsInHideoutTroopManage(false);
             base.MenuViewContext.CloseTroopSelection();
-            Action<TroopRoster> onDone = this._onDone;
+            Action<TroopRoster> onDone = _onDone;
             if (onDone == null)
             {
                 return;
@@ -894,13 +931,13 @@ namespace ChooseYourTroops
         {
             base.Layer.IsFocusLayer = false;
             ScreenManager.TryLoseFocus(base.Layer);
-            this._dataSource.OnFinalize();
-            this._dataSource = null;
-            this._layerAsGauntletLayer.ReleaseMovie(this._movie);
+            _dataSource.OnFinalize();
+            _dataSource = null;
+            _layerAsGauntletLayer.ReleaseMovie(_movie);
             base.MenuViewContext.RemoveLayer(base.Layer);
-            this._movie = null;
+            _movie = null;
             base.Layer = null;
-            this._layerAsGauntletLayer = null;
+            _layerAsGauntletLayer = null;
             MapScreen.Instance.SetIsInHideoutTroopManage(false);
             base.OnFinalize();
         }
@@ -909,16 +946,16 @@ namespace ChooseYourTroops
         protected override void OnFrameTick(float dt)
         {
             base.OnFrameTick(dt);
-            if (this._dataSource != null)
+            if (_dataSource != null)
             {
-                this._dataSource.IsFiveStackModifierActive = base.Layer.Input.IsHotKeyDown("FiveStackModifier");
-                this._dataSource.IsEntireStackModifierActive = base.Layer.Input.IsHotKeyDown("EntireStackModifier");
+                _dataSource.IsFiveStackModifierActive = base.Layer.Input.IsHotKeyDown("FiveStackModifier");
+                _dataSource.IsEntireStackModifierActive = base.Layer.Input.IsHotKeyDown("EntireStackModifier");
             }
             ScreenLayer layer = base.Layer;
             if (layer != null && layer.Input.IsHotKeyPressed("Exit"))
             {
                 UISoundsHelper.PlayUISound("event:/ui/default");
-                this._dataSource.ExecuteCancel();
+                _dataSource.ExecuteCancel();
             }
             else
             {
@@ -926,7 +963,7 @@ namespace ChooseYourTroops
                 if (layer2 != null && layer2.Input.IsHotKeyPressed("Confirm"))
                 {
                     UISoundsHelper.PlayUISound("event:/ui/default");
-                    this._dataSource.ExecuteDone();
+                    _dataSource.ExecuteDone();
                 }
                 else
                 {
@@ -934,11 +971,11 @@ namespace ChooseYourTroops
                     if (layer3 != null && layer3.Input.IsHotKeyPressed("Reset"))
                     {
                         UISoundsHelper.PlayUISound("event:/ui/default");
-                        this._dataSource.ExecuteReset();
+                        _dataSource.ExecuteReset();
                     }
                 }
             }
-            CYTGameMenuTroopSelectionVM dataSource = this._dataSource;
+            CYTGameMenuTroopSelectionVM dataSource = _dataSource;
             if (dataSource != null && !dataSource.IsEnabled)
             {
                 base.MenuViewContext.CloseTroopSelection();

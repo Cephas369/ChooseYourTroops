@@ -13,6 +13,8 @@
 	  <string id="cyt_order_by_class" text="Order by class" />
 	  <string id="cyt_order_by_count" text="Order by count" />
 	  <string id="cyt_order_by_culture" text="Order by culture" />
-	<string id="select_your_troops_tooltip" text="There is only one person or less on your party." />
+	  <string id="select_your_troops_tooltip" text="There is only one person or less on your party." />
+	  <string id="max_battle_size_support_option" text="Support for maximum battle size mods (READ DESCRIPTION)" />
+	  <string id="max_battle_size_support_option_description" text="Allows to choose the maximum troops allowed by engine in battle (2040). (OBS: it only increases it in the troops selection menu, another mod is required to handle this in battle like BattleSize Resized)" />
   </strings>
 </base>
