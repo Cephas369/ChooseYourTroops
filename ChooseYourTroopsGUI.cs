@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using SandBox.GauntletUI.Menu;
 using TaleWorlds.CampaignSystem.Roster;
 using TaleWorlds.CampaignSystem.ViewModelCollection.GameMenu.TroopSelection;
 using TaleWorlds.CampaignSystem;
@@ -39,7 +40,7 @@ namespace ChooseYourTroops
 
             var spriteData = UIResourceManager.SpriteData;
             _category = spriteData.SpriteCategories["ui_partyscreen"];
-            _category.Load(UIResourceManager.ResourceContext, UIResourceManager.UIResourceDepot);
+            _category.Load(UIResourceManager.ResourceContext, UIResourceManager.ResourceDepot);
 
         }
         private SpriteCategory _category;
@@ -883,31 +884,26 @@ namespace ChooseYourTroops
         protected override void OnInitialize()
         {
             base.OnInitialize();
-            _dataSource = new CYTGameMenuTroopSelectionVM(_fullRoster, _initialSelections, _changeChangeStatusOfTroop, new Action<TroopRoster>(OnDone), _maxSelectableTroopCount, _minSelectableTroopCount)
+            this._dataSource = new CYTGameMenuTroopSelectionVM(this._fullRoster, this._initialSelections, this._changeChangeStatusOfTroop, new Action<TroopRoster>(this.OnDone), this._maxSelectableTroopCount, this._minSelectableTroopCount)
             {
                 IsEnabled = true
             };
-            _dataSource.SetCancelInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Exit"));
-            _dataSource.SetDoneInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Confirm"));
-            _dataSource.SetResetInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Reset"));
-            base.Layer = new GauntletLayer(206, "GauntletLayer", false)
-            {
-                Name = "MenuTroopSelection"
-            };
-            _layerAsGauntletLayer = (base.Layer as GauntletLayer);
-            base.Layer.InputRestrictions.SetInputRestrictions(true, InputUsageMask.All);
-            base.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericPanelGameKeyCategory"));
-            base.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericCampaignPanelsGameKeyCategory"));
-            _movie = _layerAsGauntletLayer.LoadMovie("CYTGameMenuTroopSelection", _dataSource);
-            base.Layer.IsFocusLayer = true;
-            ScreenManager.TrySetFocus(_layerAsGauntletLayer);
-            base.MenuViewContext.AddLayer(base.Layer);
+            this._dataSource.SetCancelInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Exit"));
+            this._dataSource.SetDoneInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Confirm"));
+            this._dataSource.SetResetInputKey(HotKeyManager.GetCategory("GenericPanelGameKeyCategory").GetHotKey("Reset"));
+            this.Layer = (ScreenLayer) new GauntletLayer("MapTroopSelection", 206);
+            this._layerAsGauntletLayer = this.Layer as GauntletLayer;
+            this.Layer.InputRestrictions.SetInputRestrictions();
+            this.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericPanelGameKeyCategory"));
+            this.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericCampaignPanelsGameKeyCategory"));
+            this._movie = this._layerAsGauntletLayer.LoadMovie("GameMenuTroopSelection", (ViewModel) this._dataSource);
+            this.Layer.IsFocusLayer = true;
+            ScreenManager.TrySetFocus((ScreenLayer) this._layerAsGauntletLayer);
+            this.MenuViewContext.AddLayer(this.Layer);
             
-            MapScreen mapScreen;
-            if ((mapScreen = (ScreenManager.TopScreen as MapScreen)) != null)
-            {
-                mapScreen.SetIsInHideoutTroopManage(true);
-            }
+            if (!(ScreenManager.TopScreen is MapScreen topScreen))
+                return;
+            topScreen.SetIsInHideoutTroopManage(true);
         }
 
         // Token: 0x0600013A RID: 314 RVA: 0x00009EC5 File Offset: 0x000080C5
@@ -1007,7 +1003,7 @@ namespace ChooseYourTroops
         private CYTGameMenuTroopSelectionVM _dataSource;
 
         // Token: 0x0400008C RID: 140
-        private IGauntletMovie _movie;
+        private GauntletMovieIdentifier _movie;
     }
 
     public class CYTTroopItemComparer : IComparer<TroopSelectionItemVM>
@@ -1073,6 +1069,5 @@ namespace ChooseYourTroops
 
         }
     }
-
 
 }

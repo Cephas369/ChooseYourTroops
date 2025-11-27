@@ -75,34 +75,30 @@ namespace ChooseYourTroops
 
         private static void CheckTroopRoster()
         {
-            if (_actualTroopRoster != null)
+            if (_actualTroopRoster == null) 
+                return;
+
+            var partyRoster = MobileParty.MainParty. MemberRoster. GetTroopRoster();
+            var actualRoster = _actualTroopRoster.GetTroopRoster();
+    
+            _actualTroopRoster. Clear();
+
+            foreach (var actualTroop in actualRoster)
             {
-                List<TroopRosterElement> partyRoster = MobileParty.MainParty.MemberRoster.GetTroopRoster();
-                List<TroopRosterElement> actualRoster = _actualTroopRoster.GetTroopRoster();
-                _actualTroopRoster.Clear();
-                for (int i = 0; i < actualRoster.Count; i++)
-                {
-                    TroopRosterElement partyTroop = partyRoster.FirstOrDefault(x =>
-                        x.Character.StringId == actualRoster[i].Character.StringId);
-                    if (partyTroop.Equals(default(TroopRosterElement)) ||
-                        partyTroop.Number == partyTroop.WoundedNumber || partyTroop.Number <= 0)
-                    {
-                        actualRoster.Remove(actualRoster[i]);
-                        continue;
-                    }
+                var partyTroop = partyRoster.FirstOrDefault(x => 
+                    x.Character?. StringId == actualTroop. Character?.StringId);
+        
+                if (partyTroop. Character == null || 
+                    partyTroop. Number <= 0 || 
+                    partyTroop.Number == partyTroop.WoundedNumber)
+                    continue;
 
-                    if (actualRoster[i].Number > partyTroop.Number - partyTroop.WoundedNumber)
-                    {
-                        TroopRosterElement actualTroop = actualRoster[i];
-                        actualTroop.Number = partyTroop.Number - partyTroop.WoundedNumber;
-                        actualRoster[i] = actualTroop;
-                    }
-                }
-
-                foreach (TroopRosterElement troop in actualRoster)
-                {
-                    _actualTroopRoster.Add(troop);
-                }
+                var healthyCount = partyTroop.Number - partyTroop.WoundedNumber;
+                var finalCount = Math.Min(actualTroop.Number, healthyCount);
+        
+                var updatedTroop = actualTroop;
+                updatedTroop. Number = finalCount;
+                _actualTroopRoster.Add(updatedTroop);
             }
         }
 
@@ -115,8 +111,7 @@ namespace ChooseYourTroops
         {
             private static bool isPlayerArmyBig()
             {
-                if (PlayerEncounter.Battle != null && PlayerEncounter.Battle.IsFinalized &&
-                    PlayerEncounter.Battle.IsFinished)
+                if (PlayerEncounter.Battle != null && PlayerEncounter.Battle.IsFinalized)
                     return false;
                 if (MobileParty.MainParty.Army != null &&
                     MobileParty.MainParty.Army.LeaderParty.Name != MobileParty.MainParty.Name)
@@ -288,16 +283,37 @@ namespace ChooseYourTroops
                 }
 
                 initialPlayerSpawn = initialPlayerTroops;
+                
+                // First gets only the healthy and not hero troops
                 TroopRoster dummyTroopRoster = TroopRoster.CreateDummyTroopRoster();
-                dummyTroopRoster.Add(armyRoster.ToFlattenedRoster().Where(x => x.Troop.IsHero && !x.IsWounded));
+                foreach (var troop in armyRoster.GetTroopRoster().Where(x => x.Character.IsHero && x.Number > x.WoundedNumber))
+                {
+                    dummyTroopRoster.Add(troop);
+                }
+                    
                 if (_actualTroopRoster != null)
                 {
-                    List<FlattenedTroopRosterElement> soldiers = _actualTroopRoster.ToFlattenedRoster()
-                        .Where(x => !x.Troop.IsHero && !x.IsWounded).ToList();
-                    if (soldiers.Count + dummyTroopRoster.TotalManCount > initialPlayerTroops)
-                        soldiers.RemoveRange(initialPlayerTroops - 1 - dummyTroopRoster.TotalManCount,
-                            soldiers.Count + dummyTroopRoster.TotalManCount - initialPlayerTroops);
-                    dummyTroopRoster.Add(soldiers);
+                    var soldiersRoster = _actualTroopRoster.CloneRosterData();
+                    foreach (var soldier in soldiersRoster.GetTroopRoster())
+                    {
+                        if (soldier.WoundedNumber > 0)
+                        {
+                            soldiersRoster.AddToCounts(soldier.Character, -soldier.WoundedNumber);
+                        }
+                    }
+
+                    if (soldiersRoster.TotalManCount + dummyTroopRoster.TotalManCount > initialPlayerTroops)
+                    {
+                        for (int i = initialPlayerTroops - 1 - dummyTroopRoster.TotalManCount; i < soldiersRoster.Count + dummyTroopRoster.TotalManCount - initialPlayerTroops; i++)
+                        {
+                            soldiersRoster.RemoveTroop(soldiersRoster.GetCharacterAtIndex(i), 1);
+                        }
+                    }
+                    
+                    foreach (var troop in soldiersRoster.GetTroopRoster().Where(x => !x.Character.IsHero))
+                    {
+                        dummyTroopRoster.AddToCounts(troop.Character, troop.Number - troop.WoundedNumber);
+                    }
                 }
                 else
                 {
@@ -433,11 +449,11 @@ namespace ChooseYourTroops
                 }
             }
 
-            [HarmonyPatch(typeof(MissionAgentSpawnLogic), "OnBattleSideDeployed")]
+            [HarmonyPatch(typeof(Mission), "OnBattleSideDeployed")]
             static class OnBattleSideDeployedPostfix
             {
                 [HarmonyPostfix]
-                static void Postfix(BattleSideEnum side, MissionAgentSpawnLogic __instance)
+                static void Postfix(BattleSideEnum side)
                 {
                     if (side == _playerSide)
                         PlayerArmySize = 0;
