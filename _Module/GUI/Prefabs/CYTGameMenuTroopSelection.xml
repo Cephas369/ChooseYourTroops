@@ -28,9 +28,6 @@
 									</Children>
 								</Widget>
 
-
-
-
 								<ListPanel MarginLeft="60" MarginTop="78" DoNotPassEventsToChildren="true" WidthSizePolicy="CoverChildren" HeightSizePolicy="CoverChildren" MarginRight="!Element.Spacing" StackLayout.LayoutMethod="HorizontalLeftToRight">
 									<Children  >
 										<Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" HorizontalAlignment="Left" VerticalAlignment="Top" SuggestedWidth="!Icon.Width" SuggestedHeight="!Icon.Height"  Sprite="PartyScreen\icon_troop_type_infantry" Color="#BE945BFF" />
@@ -49,27 +46,12 @@
 										<TextWidget WidthSizePolicy="CoverChildren" HeightSizePolicy="Fixed" SuggestedWidth="!Text.Width" SuggestedHeight="!Text.Height" Brush.FontSize="!Text.FontSize" IntText="@CavalryAmount" />
 									</Children>
 								</ListPanel>
-								<ListPanel MarginLeft="430" MarginTop="78" DoNotPassEventsToChildren="true" WidthSizePolicy="CoverChildren" HeightSizePolicy="CoverChildren" MarginRight="!Element.Spacing" StackLayout.LayoutMethod="HorizontalLeftToRight">
+								<ListPanel MarginLeft="420" MarginTop="78" DoNotPassEventsToChildren="true" WidthSizePolicy="CoverChildren" HeightSizePolicy="CoverChildren" MarginRight="!Element.Spacing" StackLayout.LayoutMethod="HorizontalLeftToRight">
 									<Children  >
 										<Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" HorizontalAlignment="Left" VerticalAlignment="Top" SuggestedWidth="!Icon.Width" SuggestedHeight="!Icon.Height"  Sprite="PartyScreen\icon_troop_type_horse_archer" Color="#BE945BFF" />
 										<TextWidget WidthSizePolicy="CoverChildren" HeightSizePolicy="Fixed" SuggestedWidth="!Text.Width" SuggestedHeight="!Text.Height" Brush.FontSize="!Text.FontSize" IntText="@HorseArcherAmount" />
 									</Children>
 								</ListPanel>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 								<ScrollablePanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" AutoHideScrollBars="true" VerticalAlignment="Bottom"  ClipRect="ClipRect" InnerPanel="ClipRect\TroopsGrid" VerticalScrollbar="..\HideoutTroopsScrollbar\Scrollbar" >
 									<Children>
@@ -82,14 +64,14 @@
 														<!--Troop Card-->
 														<ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="220" SuggestedHeight="140" HorizontalAlignment="Center" Command.AlternateClick="ExecuteLink" HoveredCursorState="RightClickLink">
 															<Children>
-																<GameMenuTroopSelectionItemButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" HorizontalAlignment="Center" Brush="TroopSelection.Card" IsSelected="@IsSelected" Command.Add="ExecuteAdd" Command.Remove="ExecuteRemove" IsTroopHero="@IsTroopHero" MaxAmount="@MaxAmount" CurrentAmount="@CurrentAmount" AddButtonWidget="AddRemoveControls\AddButtonWidget" HeroHealthParent="HeroHealthParent" RemoveButtonWidget="AddRemoveControls\RemoveButtonWidget" CheckmarkVisualWidget="CheckmarkVisualWidget" IsRosterFull="@IsRosterFull" AddRemoveControls="AddRemoveControls" IsLocked="@IsLocked" Command.AlternateClick="ExecuteLink" HoveredCursorState="RightClickLink">
+																<GameMenuTroopSelectionItemButtonWidget UpdateChildrenStates="true" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" HorizontalAlignment="Center" Brush="TroopSelection.Card" IsSelected="@IsSelected" Command.Add="ExecuteAdd" Command.Remove="ExecuteRemove" IsTroopHero="@IsTroopHero" MaxAmount="@MaxAmount" CurrentAmount="@CurrentAmount" AddButtonWidget="AddRemoveControls\AddButtonWidget" HeroHealthParent="HeroHealthParent" RemoveButtonWidget="AddRemoveControls\RemoveButtonWidget" CheckmarkVisualWidget="CheckmarkVisualWidget" IsRosterFull="@IsRosterFull" AddRemoveControls="AddRemoveControls" IsLocked="@IsLocked" Command.AlternateClick="ExecuteLink" HoveredCursorState="RightClickLink">
 																	<Children>
 																		<NavigationAutoScrollWidget TrackedWidget="..\." />
 																		<NavigationScopeTargeter ScopeID="ManageTroopsItemScope" ScopeParent="..\." ScopeMovements="Vertical" />
-																		<ImageIdentifierWidget DataSource= "{Visual}" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedHeight="67" SuggestedWidth="100" AdditionalArgs="@AdditionalArgs" ImageId="@Id" ImageTypeCode="@ImageTypeCode" MarginLeft="20" MarginTop="10" DoNotAcceptEvents="true" >
+																		<ImageIdentifierWidget DataSource= "{Visual}" UpdateChildrenStates="true" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedHeight="67" SuggestedWidth="100" AdditionalArgs="@AdditionalArgs" ImageId="@Id" TextureProviderName="@TextureProviderName" MarginLeft="20" MarginTop="10" DoNotAcceptEvents="true" >
 																			<Children>
-																				<Widget DataSource="{..\TierIconData}" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="20" SuggestedHeight="20" HorizontalAlignment="Right" VerticalAlignment="Top" PositionXOffset="0" PositionYOffset="2" Sprite="@Text"/>
-																				<Widget DataSource="{..\TypeIconData}" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="20" SuggestedHeight="20" HorizontalAlignment="Left" VerticalAlignment="Top" PositionXOffset="0" PositionYOffset="2" Sprite="@Text"/>
+																				<DefaultLayerSpriteChangerBrushWidget DataSource="{..\TierIconData}" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="20" SuggestedHeight="20" HorizontalAlignment="Right" VerticalAlignment="Top" PositionXOffset="0" PositionYOffset="2" Brush="GameMenu.ManageHideoutTroops.TierTypeSelectionBrush" SpriteBrush="GameMenu.ManageHideoutTroops.TierIconsBrush" SpriteBrushLayerName="@Text"/>
+																				<DefaultLayerSpriteChangerBrushWidget DataSource="{..\TypeIconData}" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="20" SuggestedHeight="20" HorizontalAlignment="Left" VerticalAlignment="Top" PositionXOffset="0" PositionYOffset="2" Brush="GameMenu.ManageHideoutTroops.TierTypeSelectionBrush" SpriteBrush="GameMenu.ManageHideoutTroops.TypeIconsBrush" SpriteBrushLayerName="@Text"/>
 																			</Children>
 																		</ImageIdentifierWidget>
 																		<TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="135" SuggestedHeight="55" Brush="GameMenu.ManageHideoutTroops.NameText" Text="@Name" MarginLeft="20" MarginTop="80" DoNotAcceptEvents="true"/>
@@ -106,8 +88,8 @@
 																			</Children>
 																		</Widget>
 
-																		<NavigationAutoScrollWidget TrackedWidget="..\AddRemoveControls\AddButtonWidget" ScrollYOffset="100" />
-																		<NavigationAutoScrollWidget TrackedWidget="..\AddRemoveControls\RemoveButtonWidget" ScrollYOffset="100" />
+																		<NavigationAutoScrollWidget TrackedWidget="..\AddRemoveControls\AddButtonWidget" AutoScrollTopOffset="100" AutoScrollBottomOffset="100" />
+																		<NavigationAutoScrollWidget TrackedWidget="..\AddRemoveControls\RemoveButtonWidget" AutoScrollTopOffset="100" AutoScrollBottomOffset="100" />
 
 																		<ListPanel Id="AddRemoveControls" WidthSizePolicy="CoverChildren" HeightSizePolicy="CoverChildren" HorizontalAlignment="Right" VerticalAlignment="Center" StackLayout.LayoutMethod="VerticalBottomToTop">
 																			<Children>
@@ -162,7 +144,6 @@
 											</Children>
 										</ButtonWidget>
 
-
 									</Children>
 								</ListPanel>
 
@@ -208,7 +189,7 @@
 						</Widget>
 
 						<!--Close Buttons-->
-						<Standard.TriplePopupCloseButtons VerticalAlignment="Bottom" PositionYOffset="-90" Parameter.CancelButtonText="@CancelText" Parameter.DoneButtonText="@DoneText" Parameter.CancelButtonAction="ExecuteCancel" Parameter.ResetButtonAction="ExecuteReset" Parameter.DoneButtonAction="ExecuteDone" Parameter.IsDoneEnabled="@IsDoneEnabled" Parameter.ResetInputKeyDataSource="{ResetInputKey}" Parameter.DoneInputKeyDataSource="{DoneInputKey}" Parameter.CancelInputKeyDataSource="{CancelInputKey}"/>
+						<Standard.TriplePopupCloseButtons VerticalAlignment="Bottom" PositionYOffset="-90" Parameter.CancelButtonText="@CancelText" Parameter.DoneButtonText="@DoneText" Parameter.CancelButtonAction="ExecuteCancel" Parameter.ResetButtonAction="ExecuteReset" Parameter.DoneButtonAction="ExecuteDone" Parameter.IsDoneEnabled="@IsDoneEnabled" Parameter.ResetInputKeyDataSource="{ResetInputKey}" Parameter.DoneInputKeyDataSource="{DoneInputKey}" Parameter.CancelInputKeyDataSource="{CancelInputKey}" Parameter.DoneButtonHintDataSource="{DoneHint}"/>
 
 					</Children>
 				</ListPanel>

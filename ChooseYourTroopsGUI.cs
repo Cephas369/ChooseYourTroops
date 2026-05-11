@@ -896,7 +896,7 @@ namespace ChooseYourTroops
             this.Layer.InputRestrictions.SetInputRestrictions();
             this.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericPanelGameKeyCategory"));
             this.Layer.Input.RegisterHotKeyCategory(HotKeyManager.GetCategory("GenericCampaignPanelsGameKeyCategory"));
-            this._movie = this._layerAsGauntletLayer.LoadMovie("GameMenuTroopSelection", (ViewModel) this._dataSource);
+            this._movie = this._layerAsGauntletLayer.LoadMovie("CYTGameMenuTroopSelection", (ViewModel) this._dataSource);
             this.Layer.IsFocusLayer = true;
             ScreenManager.TrySetFocus((ScreenLayer) this._layerAsGauntletLayer);
             this.MenuViewContext.AddLayer(this.Layer);
