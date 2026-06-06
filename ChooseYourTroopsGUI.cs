@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using SandBox.GauntletUI.Menu;
 using TaleWorlds.CampaignSystem.Roster;
@@ -44,8 +45,8 @@ namespace ChooseYourTroops
 
         }
         private SpriteCategory _category;
-        // Token: 0x06000DF8 RID: 3576 RVA: 0x000389EC File Offset: 0x00036BEC
-        public override void RefreshValues()
+        
+        public sealed override void RefreshValues()
         {
             base.RefreshValues();
             TitleText = _titleTextObject.ToString();
@@ -53,6 +54,9 @@ namespace ChooseYourTroops
             DoneText = GameTexts.FindText("str_done", null).ToString();
             CancelText = GameTexts.FindText("str_cancel", null).ToString();
             ClearSelectionText = new TextObject("{=QMNWbmao}Clear Selection", null).ToString();
+            AutomaticSelectionText = new TextObject("{=cyt_automatic_selection}Automatic Selection", null).ToString();
+            ResetToSavedText = new TextObject("{=cyt_reset_to_saved}Reset To Saved", null).ToString();
+            DismissSelectionText = new TextObject("{=cyt_dismiss_selection}Dismiss Selection", null).ToString();
 
             OrderByTierText = new TextObject("{=cyt_order_by_tier}Order by tier", null).ToString();
             OrderByNameText = new TextObject("{=cyt_order_by_name}Order by name", null).ToString();
@@ -238,6 +242,89 @@ namespace ChooseYourTroops
             InitList();
             OnCurrentSelectedAmountChange();
         }
+        
+        public void ExecuteResetToSaved()
+        {
+            ExecuteReset();
+        }
+
+        public void ExecuteDismissSelection()
+        {
+            ChooseYourTroopsBehavior.DismissSelection();
+            this.ExecuteCancel();
+        }
+        
+        public void ExecuteAutomaticSelection()
+        {
+            ExecuteClearSelection();
+
+            FormationClass[] formationClasses = new[]
+            {
+                FormationClass.Infantry,
+                FormationClass.Ranged,
+                FormationClass.Cavalry,
+                FormationClass.HorseArcher
+            };
+
+            List<FormationClass> activeFormationClasses = formationClasses
+                .Where(HasSelectableTroopsForFormationClass)
+                .ToList();
+
+            if (activeFormationClasses.Count == 0)
+                return;
+
+            while (true)
+            {
+                List<TroopSelectionItemVM> troopsToAdd = new(activeFormationClasses.Count);
+                int roundCost = 0;
+
+                foreach (FormationClass formationClass in activeFormationClasses)
+                {
+                    TroopSelectionItemVM troopToAdd = GetSelectableTroopForFormationClass(formationClass);
+                    if (troopToAdd == null)
+                    {
+                        troopsToAdd.Clear();
+                        break;
+                    }
+
+                    int troopCost = GetTroopCost(troopToAdd);
+                    if (_currentTotalSelectedTroopCount + roundCost + troopCost > _maxSelectableTroopCount)
+                    {
+                        troopsToAdd.Clear();
+                        break;
+                    }
+
+                    troopsToAdd.Add(troopToAdd);
+                    roundCost += troopCost;
+                }
+
+                if (troopsToAdd.Count == 0)
+                    break;
+
+                foreach (TroopSelectionItemVM troopSelectionItemVM in troopsToAdd)
+                {
+                    OnAddCount(troopSelectionItemVM);
+                }
+            }
+
+            // Greedy fill: add individual troops (in class order) to use any remaining capacity
+            // that could not be filled by a full balanced round.
+            foreach (FormationClass formationClass in activeFormationClasses)
+            {
+                while (_currentTotalSelectedTroopCount < _maxSelectableTroopCount)
+                {
+                    TroopSelectionItemVM troopToAdd = GetSelectableTroopForFormationClass(formationClass);
+                    if (troopToAdd == null)
+                        break;
+
+                    int troopCost = GetTroopCost(troopToAdd);
+                    if (_currentTotalSelectedTroopCount + troopCost > _maxSelectableTroopCount)
+                        break;
+
+                    OnAddCount(troopToAdd);
+                }
+            }
+        }
 
         public void ExecuteClearSelection()
         {
@@ -252,6 +339,34 @@ namespace ChooseYourTroops
                     }
                 }
             });
+        }
+
+        private bool HasSelectableTroopsForFormationClass(FormationClass formationClass)
+        {
+            return Troops.Any(troopSelectionItemVM =>
+                troopSelectionItemVM.Troop.Character.DefaultFormationClass == formationClass &&
+                !troopSelectionItemVM.IsLocked &&
+                troopSelectionItemVM.CurrentAmount < troopSelectionItemVM.MaxAmount);
+        }
+
+        private TroopSelectionItemVM GetSelectableTroopForFormationClass(FormationClass formationClass)
+        {
+            return Troops
+                .Where(troopSelectionItemVM =>
+                    troopSelectionItemVM.Troop.Character.DefaultFormationClass == formationClass &&
+                    !troopSelectionItemVM.IsLocked &&
+                    troopSelectionItemVM.CurrentAmount < troopSelectionItemVM.MaxAmount)
+                .OrderBy(troopSelectionItemVM => troopSelectionItemVM.CurrentAmount)
+                .ThenByDescending(troopSelectionItemVM => troopSelectionItemVM.MaxAmount)
+                .FirstOrDefault();
+        }
+
+        private int GetTroopCost(TroopSelectionItemVM troopSelectionItemVM)
+        {
+            return ChooseYourTroopsConfig.Instance is { SupportForMaximumTroops: true } &&
+                   ChooseYourTroopsBehavior.DoesTroopCountByTwo(troopSelectionItemVM.Troop.Character)
+                ? 2
+                : 1;
         }
 
         public void OrderByTier()
@@ -570,6 +685,48 @@ namespace ChooseYourTroops
                 }
             }
         }
+        
+        [DataSourceProperty]
+        public string AutomaticSelectionText
+        {
+            get => _automaticSelectionText;
+            set
+            {
+                if (value != _automaticSelectionText)
+                {
+                    _automaticSelectionText = value;
+                    base.OnPropertyChangedWithValue<string>(value, nameof(AutomaticSelectionText));
+                }
+            }
+        }
+        
+        [DataSourceProperty]
+        public string ResetToSavedText
+        {
+            get => _resetToSavedText;
+            set
+            {
+                if (value != _resetToSavedText)
+                {
+                    _resetToSavedText = value;
+                    base.OnPropertyChangedWithValue<string>(value, nameof(ResetToSavedText));
+                }
+            }
+        }
+        
+        [DataSourceProperty]
+        public string DismissSelectionText
+        {
+            get => _dismissSelectionText;
+            set
+            {
+                if (value != _dismissSelectionText)
+                {
+                    _dismissSelectionText = value;
+                    base.OnPropertyChangedWithValue<string>(value, nameof(DismissSelectionText));
+                }
+            }
+        }
 
         // Token: 0x17000499 RID: 1177
         // (get) Token: 0x06000E1A RID: 3610 RVA: 0x00039061 File Offset: 0x00037261
@@ -680,10 +837,6 @@ namespace ChooseYourTroops
         private int _cavalryAmount;
         private int _horseArcherAmount;
 
-
-
-
-
         [DataSourceProperty]
         public SelectorVM<SelectorItemVM> SortSelector
         {
@@ -790,80 +943,56 @@ namespace ChooseYourTroops
             }
         }
         private string _OrderByClassText;
-        // Token: 0x0400067B RID: 1659
         private readonly Action<TroopRoster> _onDone;
 
-        // Token: 0x0400067C RID: 1660
         private readonly TroopRoster _fullRoster;
 
-        // Token: 0x0400067D RID: 1661
         private readonly TroopRoster _initialSelections;
 
-        // Token: 0x0400067E RID: 1662
         private readonly Func<CharacterObject, bool> _canChangeChangeStatusOfTroop;
 
-        // Token: 0x0400067F RID: 1663
         private readonly int _maxSelectableTroopCount;
 
-        // Token: 0x04000680 RID: 1664
         private readonly int _minSelectableTroopCount;
 
-        // Token: 0x04000681 RID: 1665
         private readonly TextObject _titleTextObject = new TextObject("{=cyt_initial_troops}Initial Troops", null);
 
-        // Token: 0x04000682 RID: 1666
         private readonly TextObject _chosenTitleTextObject = new TextObject("{=cyt_chosen_troops}Chosen Troops", null);
 
-        // Token: 0x04000683 RID: 1667
         private int _currentTotalSelectedTroopCount;
 
-        // Token: 0x04000684 RID: 1668
         public bool IsFiveStackModifierActive;
 
-        // Token: 0x04000685 RID: 1669
         public bool IsEntireStackModifierActive;
 
-        // Token: 0x04000686 RID: 1670
         private InputKeyItemVM _doneInputKey;
 
-        // Token: 0x04000687 RID: 1671
         private InputKeyItemVM _cancelInputKey;
 
-        // Token: 0x04000688 RID: 1672
         private InputKeyItemVM _resetInputKey;
 
-        // Token: 0x04000689 RID: 1673
         private bool _isEnabled;
 
-        // Token: 0x0400068A RID: 1674
         private bool _isDoneEnabled;
 
-        // Token: 0x0400068B RID: 1675
         private string _doneText;
 
-        // Token: 0x0400068C RID: 1676
         private string _cancelText;
 
-        // Token: 0x0400068D RID: 1677
         private string _titleText;
 
-        // Token: 0x0400068E RID: 1678
         private string _clearSelectionText;
-
-        // Token: 0x0400068F RID: 1679
+        private string _automaticSelectionText;
+        private string _resetToSavedText;
+        private string _dismissSelectionText;
+        
         private string _currentSelectedAmountText;
+        
 
-        // Token: 0x04000690 RID: 1680
         private string _currentSelectedAmountTitle;
 
-        // Token: 0x04000691 RID: 1681
         private MBBindingList<TroopSelectionItemVM> _troops;
     }
-
-
-
-
-
 
 
    // [OverrideView(typeof(MenuTroopSelectionView))]

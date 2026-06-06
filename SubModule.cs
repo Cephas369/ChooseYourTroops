@@ -41,28 +41,6 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
 
     public override void RegisterEvents()
     {
-        /*CampaignEvents.MissionTickEvent.AddNonSerializedListener(this, (float dt) =>
-        {
-            if (Input.IsKeyReleased(InputKey.H))
-            {
-                Mission mission = Mission.Current;
-                int trueAttackerAmount =
-                    mission.AttackerTeam.ActiveAgents.Sum(agent => agent.Character.HasMount() ? 2 : 1);
-
-                int trueDefenderAmount =
-                    mission.DefenderTeam.ActiveAgents.Sum(agent => agent.Character.HasMount() ? 2 : 1);
-
-                InformationManager.DisplayMessage(new InformationMessage(
-                    new TextObject($"Attacker amount: {mission.AttackerTeam.ActiveAgents.Count} | true amount: {trueAttackerAmount}").ToString()));
-
-                InformationManager.DisplayMessage(new InformationMessage(
-                    new TextObject($"Defender amount: {mission.DefenderTeam.ActiveAgents.Count} | true amount: {trueDefenderAmount}").ToString()));
-
-                InformationManager.DisplayMessage(new InformationMessage(
-                    new TextObject($"All agents: {mission.AllAgents.Count}").ToString()));
-            }
-        });*/
-
         CampaignEvents.OnMissionEndedEvent.AddNonSerializedListener(this, (IMission mission) =>
         {
             CheckTroopRoster();
@@ -78,9 +56,18 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
         });
     }
 
-    public static bool DoesTroopCountByTwo(CharacterObject characterObject)
+    internal static bool DoesTroopCountByTwo(CharacterObject characterObject)
     {
         return ChooseYourTroopsConfig.Instance is { SupportForMaximumTroops: true } && characterObject.HasMount();
+    }
+
+    internal static void DismissSelection()
+    {
+        EncounterGameMenuBehavior.AllocateTroopsPatch.Reset();
+        _actualTroopRoster = null;
+        _haveChosenTroops = false;
+        
+        Campaign.Current.CurrentMenuContext.Refresh();
     }
 
     private static void CheckTroopRoster()
@@ -98,7 +85,6 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
             var partyTroop = partyRoster.FirstOrDefault(x =>
                 x.Character?.StringId == actualTroop.Character?.StringId);
 
-            // If it's not found in the player party but it's in a party of the same army, fallback to the iterator element
             if (partyTroop.Character == null && actualTroop.Character?.HeroObject?.PartyBelongedTo?.Army == MobileParty.MainParty?.Army)
             {
                 partyTroop = actualTroop;
@@ -108,7 +94,7 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                 partyTroop.Number <= 0 ||
                 partyTroop.Number == partyTroop.WoundedNumber)
                 continue;
-    
+
             var healthyCount = partyTroop.Number - partyTroop.WoundedNumber;
             var finalCount = Math.Min(actualTroop.Number, healthyCount);
 
@@ -134,11 +120,10 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                 return false;
             if (PlayerEncounter.Battle != null && PlayerSiege.BesiegedSettlement == null &&
                 MobileParty.MainParty.Army == null &&
-                PlayerEncounter.Battle.PartiesOnSide(PlayerEncounter.Battle.PlayerSide).Count(x => !x.IsNpcParty) >
-                1 &&
-                PlayerEncounter.Battle.GetLeaderParty(PlayerEncounter.Battle.PlayerSide).Name !=
-                PartyBase.MainParty.Name)
+                PlayerEncounter.Battle.PartiesOnSide(PlayerEncounter.Battle.PlayerSide).Count(x => !x.IsNpcParty) > 1 &&
+                PlayerEncounter.Battle.GetLeaderParty(PlayerEncounter.Battle.PlayerSide).Name != PartyBase.MainParty.Name)
                 return false;
+
             if (PlayerEncounter.Battle != null || MapEvent.PlayerMapEvent != null ||
                 PlayerEncounter.EncounteredParty?.MapEvent != null)
             {
@@ -165,18 +150,14 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                 _enemyArmySize = PlayerSiege.PlayerSiegeEvent
                     .GetSiegeEventSide(PlayerSiege.PlayerSide.GetOppositeSide())
                     .GetInvolvedPartiesForEventType().Sum(x => x.NumberOfHealthyMembers);
-
-
                 _playerSide = PlayerSiege.PlayerSide;
             }
             else
             {
                 InformationManager.DisplayMessage(
-                    new InformationMessage(
-                        "ChooseYourTroops Error: Enemy party or besieged settlement not found."));
+                    new InformationMessage("ChooseYourTroops Error: Enemy party or besieged settlement not found."));
                 return false;
             }
-
 
             return true;
         }
@@ -184,19 +165,17 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
         public static void AddGamesMenu(CampaignGameStarter gameSystemInitializer)
         {
             gameSystemInitializer.AddGameMenuOption("encounter", "select_troops",
-                "{=select_your_troops_text}Select your troops.".ToString(), delegate(MenuCallbackArgs args)
+                "{=select_your_troops_text}Select troops ({SELECTED_AMOUNT} selected).", delegate(MenuCallbackArgs args)
                 {
+                    GameTexts.SetVariable("SELECTED_AMOUNT", _setupSide != null && _actualTroopRoster != null ? _actualTroopRoster.TotalManCount : 0);
                     args.optionLeaveType = GameMenuOption.LeaveType.TroopSelection;
                     args.IsEnabled = true;
                     var condition = IsPlayerArmyBig();
                     if (_playerArmySize <= 1)
                     {
                         args.IsEnabled = false;
-                        args.Tooltip =
-                            new TextObject(
-                                "{=select_your_troops_tooltip}There is only one person or less on your party.");
+                        args.Tooltip = new TextObject("{=select_your_troops_tooltip}There is only one person or less on your party.");
                     }
-
                     return condition;
                 }, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
 
@@ -209,11 +188,8 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                     if (_playerArmySize <= 1)
                     {
                         args.IsEnabled = false;
-                        args.Tooltip =
-                            new TextObject(
-                                "{=select_your_troops_tooltip}There is only one person or less on your party.");
+                        args.Tooltip = new TextObject("{=select_your_troops_tooltip}There is only one person or less on your party.");
                     }
-
                     return condition;
                 }, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
 
@@ -226,11 +202,8 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                     if (_playerArmySize <= 1)
                     {
                         args.IsEnabled = false;
-                        args.Tooltip =
-                            new TextObject(
-                                "{=select_your_troops_tooltip}There is only one person or less on your party.");
+                        args.Tooltip = new TextObject("{=select_your_troops_tooltip}There is only one person or less on your party.");
                     }
-
                     return condition;
                 }, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
         }
@@ -244,11 +217,15 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
         {
             if (troopRoster.TotalManCount < _initialPlayerSpawn)
                 _initialPlayerSpawn = troopRoster.TotalManCount;
-            if (!_haveChosenTroops)
+            if (!_haveChosenTroops || _haveChosenTroops && !troopRoster.Equals(_actualTroopRoster))
                 InformationManager.DisplayMessage(new InformationMessage(
                     new TextObject("{=troops_selected_text}Troops selected!").ToString(), new Color(15, 70, 160)));
             _actualTroopRoster = troopRoster;
             _haveChosenTroops = true;
+            
+            GameTexts.SetVariable("SELECTED_AMOUNT", _actualTroopRoster?.TotalManCount ?? 0);
+            
+            args.MenuContext.Refresh();
         }
 
         public static void OpenTroopSelection(MenuCallbackArgs args, TroopRoster fullRoster,
@@ -261,8 +238,7 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                 if (menuView != null)
                     AccessTools.Field(typeof(MenuViewContext), "_menuTroopSelection").SetValue(menuView,
                         menuView.AddMenuView<CYTGauntletMenuTroopSelectionView>(fullRoster, initialSelections,
-                            canChangeChangeStatusOfTroop, onDone, maxSelectableTroopCount,
-                            minSelectableTroopCount));
+                            canChangeChangeStatusOfTroop, onDone, maxSelectableTroopCount, minSelectableTroopCount));
             }
         }
 
@@ -327,7 +303,6 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                         soldiersRoster.RemoveTroop(soldiersRoster.GetCharacterAtIndex(i), 1);
                     }
                 }
-                        
 
                 foreach (var troop in soldiersRoster.GetTroopRoster())
                     dummyTroopRoster.AddToCounts(troop.Character, troop.Number - troop.WoundedNumber);
@@ -339,306 +314,272 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                 {
                     dummyTroopRoster.Add(troop);
                 }
-                
+
                 var strongestAndPriorTroops =
                     MobilePartyHelper.GetStrongestAndPriorTroops(MobileParty.MainParty,
                         initialPlayerTroops - dummyTroopRoster.TotalManCount, false);
                 dummyTroopRoster.Add(strongestAndPriorTroops);
             }
 
-
             OpenTroopSelection(args, armyRoster, dummyTroopRoster,
                 new Func<CharacterObject, bool>(CanChangeStatusOfTroop),
                 delegate(TroopRoster roster) { OnDone(roster, args); }, initialPlayerTroops, 1);
         }
 
-    [HarmonyPatch(typeof(MapEventSide), "AllocateTroops")]
-public static class AllocateTroopsPatch
-{
-    private static HashSet<string>
-        _selectedTroops;
-
-    public static void Reset()
-    {
-        _selectedTroops = null;
-    }
-
-    [HarmonyPrefix]
-    static void Prefix(
-        MapEventSide __instance,
-        int number,
-        ref Func<UniqueTroopDescriptor,
-            MapEventParty,
-            bool> customAllocationConditions)
-    {
-        try
+        [HarmonyPatch(typeof(MapEventSide), "AllocateTroops")]
+        public static class AllocateTroopsPatch
         {
-            if (!_setupSide)
-                return;
+            private static HashSet<string> _selectedTroops;
 
-            if (_actualTroopRoster == null)
-                return;
-
-            if (__instance.MapEvent.IsPlayerSimulation)
-                return;
-
-            if (__instance.MissionSide != _playerSide)
-                return;
-
-            // IMPORTANTE:
-            // Só controlar o INITIAL SPAWN
-            if (number != _initialPlayerSpawn)
+            public static void Reset()
             {
-                customAllocationConditions = null;
-                return;
+                _selectedTroops = null;
             }
 
-            if (_selectedTroops == null)
-            {
-                _selectedTroops =
-                    new HashSet<string>();
-
-                foreach (var troop in
-                         _actualTroopRoster
-                             .GetTroopRoster())
-                {
-                    if (troop.Character == null)
-                        continue;
-
-                    int healthy =
-                        troop.Number -
-                        troop.WoundedNumber;
-
-                    if (healthy <= 0)
-                        continue;
-
-                    _selectedTroops.Add(
-                        troop.Character.StringId);
-                }
-            }
-
-            customAllocationConditions =
-                (descriptor, party) =>
-                {
-                    try
-                    {
-                        CharacterObject troop =
-                            party.Troops[descriptor]
-                                .Troop;
-
-                        if (troop == null)
-                            return false;
-
-                        return _selectedTroops
-                            .Contains(
-                                troop.StringId);
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                };
-        }
-        catch (Exception ex)
-        {
-            InformationManager.DisplayMessage(
-                new InformationMessage(
-                    $"CYT AllocateTroops Error:\n{ex}"));
-        }
-    }
-}
-}
-
-        [HarmonyPatch(typeof(PlayerEncounter), "FinishEncounterInternal")]
-        private static class PlayerEncounterPrefix
-        {
             [HarmonyPrefix]
-            private static void Prefix()
-            {
-                EncounterGameMenuBehavior.AllocateTroopsPatch.Reset();
-                
-                _actualTroopRoster = null;
-
-                _playerSide = BattleSideEnum.None;
-
-                _setupSide = false;
-                _haveChosenTroops = false;
-
-                _playerArmySize = 0;
-                _enemyArmySize = 0;
-                _initialPlayerSpawn = 0;
-            }
-        }
-
-        [HarmonyPatch(typeof(MissionAgentSpawnLogic), "AfterStart")]
-        private static class AfterStartPostfix
-        {
-            [HarmonyPostfix]
-            private static void Postfix(MissionAgentSpawnLogic __instance)
-            {
-                if (_haveChosenTroops) _setupSide = true;
-            }
-        }
-
-        [HarmonyPatch(typeof(LordsHallFightMissionController), "OnCreated")]
-        private static class InitializeMissionPrefix
-        {
-            [HarmonyPrefix]
-            private static void Prefix()
-            {
-                if (_setupSide)
-                {
-                    _setupSide = false;
-                    _haveChosenTroops = false;
-                }
-            }
-        }
-
-        [HarmonyPatch(typeof(Mission), "OnBattleSideDeployed")]
-        private static class OnBattleSideDeployedPostfix
-        {
-            [HarmonyPostfix]
-            private static void Postfix(BattleSideEnum side)
-            {
-                if (side == _playerSide)
-                    _playerArmySize = 0;
-                else
-                    _enemyArmySize = 0;
-            }
-        }
-
-        private static int EnemyInitialSpawn =>
-            _enemyArmySize <= ChooseYourTroopsConfig.CurrentBattleSizeLimit - _initialPlayerSpawn
-                ? _enemyArmySize
-                : ChooseYourTroopsConfig.CurrentBattleSizeLimit - _initialPlayerSpawn;
-
-        /** Used to set the initial spawn of the player or the enemy taking into account if troops with mount should be counted as two */
-        private static int GetEnemyInitialSpawn(IEnumerable<FlattenedTroopRosterElement> troops)
-        {
-            var playerInitialAgents = 0;
-            foreach (var flattenedTroopRosterElement in _actualTroopRoster.ToFlattenedRoster())
-                playerInitialAgents += DoesTroopCountByTwo(flattenedTroopRosterElement.Troop) ? 2 : 1;
-
-            var maxAgents = ChooseYourTroopsConfig.CurrentBattleSizeLimit - playerInitialAgents;
-
-            var finalAmount = 0;
-            var totalAgents = 0;
-
-            for (var i = 0; i < troops.Count(); i++)
-            {
-                var currentAgents = DoesTroopCountByTwo(troops.ElementAt(i).Troop) ? 2 : 1;
-                if (totalAgents + currentAgents > maxAgents) break;
-
-                totalAgents += currentAgents;
-
-                finalAmount += 1;
-            }
-
-            return finalAmount;
-        }
-
-        private static readonly Type MissionSideType =
-            AccessTools.TypeByName("TaleWorlds.MountAndBlade.MissionAgentSpawnLogic+MissionSide");
-
-        [HarmonyPatch(typeof(MissionAgentSpawnLogic), "Init")]
-        private static class MissionAgentSpawnLogicInitdPostfix
-        {
-            [HarmonyPostfix]
-            private static void Postfix(bool spawnDefenders, bool spawnAttackers,
-                in MissionSpawnSettings reinforcementSpawnSettings, MissionAgentSpawnLogic __instance)
+            static void Prefix(
+                ref List<UniqueTroopDescriptor> troopsList,
+                int numberToAllocate,
+                ref Func<UniqueTroopDescriptor, MapEventParty, bool> customAllocationConditions,
+                MapEventSide __instance,
+                List<(FlattenedTroopRosterElement, MapEventParty, float)> ____readyTroopsPriorityList
+                )
             {
                 try
                 {
-                    if (_haveChosenTroops)
+                    if (!_setupSide) return;
+                    if (_actualTroopRoster == null) return;
+                    if (__instance.MapEvent.IsPlayerSimulation) return;
+                    if (__instance.MissionSide != _playerSide) return;
+
+                    if (numberToAllocate != _initialPlayerSpawn)
                     {
-                        var missionSidesField = AccessTools.Field(typeof(MissionAgentSpawnLogic), "_missionSides");
-                        var missionSides = (Array)missionSidesField.GetValue(__instance);
+                        customAllocationConditions = null;
+                        return;
+                    }
 
-                        var phases = __instance.GetType()
-                            .GetField("_phases", BindingFlags.NonPublic | BindingFlags.Instance)
-                            .GetValue(__instance);
-
-                        var phasesArray = (object[])phases;
-                        var enemyInitialSpawnCount = _initialPlayerSpawn;
-                        for (var i = 0; i < phasesArray.Length; i++)
+                    if (_selectedTroops == null)
+                    {
+                        _selectedTroops = new HashSet<string>();
+                        foreach (var troop in _actualTroopRoster.GetTroopRoster())
                         {
-                            var list = Enumerable.Cast<object>((IEnumerable)phasesArray[i]).ToList();
-
-                            var initialSpawnNumberProp =
-                                AccessTools.Field(list[0].GetType(), "InitialSpawnNumber");
-
-                            var isPlayerSide = i == 0
-                                ? _playerSide == BattleSideEnum.Defender
-                                : _playerSide == BattleSideEnum.Attacker;
-
-                            int currentInitialSpawn;
-
-                            if (isPlayerSide)
-                            {
-                                currentInitialSpawn = _initialPlayerSpawn;
-                            }
-                            else
-                            {
-                                if (ChooseYourTroopsConfig.Instance is { SupportForMaximumTroops: true })
-                                {
-                                    var troopSupplier = (PartyGroupTroopSupplier)AccessTools
-                                        .Field(MissionSideType, "_troopSupplier").GetValue(missionSides.GetValue(i));
-                                    ;
-                                    var partyGroup = (MapEventSide)AccessTools
-                                        .Property(typeof(PartyGroupTroopSupplier), "PartyGroup")
-                                        .GetValue(troopSupplier);
-                                    var readyTroopsPriorityList =
-                                        (List<ValueTuple<FlattenedTroopRosterElement, MapEventParty, float>>)AccessTools
-                                            .Field(typeof(MapEventSide), "_readyTroopsPriorityList")
-                                            .GetValue(partyGroup);
-                                    readyTroopsPriorityList =
-                                        readyTroopsPriorityList.OrderByDescending(x => x.Item3).ToList();
-
-                                    currentInitialSpawn =
-                                        GetEnemyInitialSpawn(readyTroopsPriorityList.Select(item => item.Item1));
-                                }
-                                else
-                                {
-                                    currentInitialSpawn = EnemyInitialSpawn;
-                                }
-
-                                enemyInitialSpawnCount = currentInitialSpawn;
-                            }
-
-                            initialSpawnNumberProp.SetValue(list[0], currentInitialSpawn);
-
-                            AccessTools.Field(list[0].GetType(), "RemainingSpawnNumber").SetValue(list[0],
-                                isPlayerSide
-                                    ? _playerArmySize - _initialPlayerSpawn
-                                    : _enemyArmySize - EnemyInitialSpawn);
-                        }
-
-                        /*AccessTools.Method(Mission.Current.GetType(), "SetBattleAgentCount", null, null).Invoke(Mission.Current, new object[]
-                        {
-                            Math.Min(_initialPlayerSpawn, enemyInitialSpawnCount)
-                        });*/
-
-                        var missionSidesObj = missionSidesField.GetValue(__instance);
-                        var missionSidesArray = missionSidesObj as Array;
-                        if (missionSidesArray != null)
-                        {
-                            var defenderSide = missionSidesArray.GetValue(0);
-                            var attackerSide = missionSidesArray.GetValue(1);
-                            var setSpawnMethod = AccessTools.Method(defenderSide.GetType(), "SetSpawnTroops");
-                            setSpawnMethod.Invoke(defenderSide, new object[] { spawnDefenders });
-                            setSpawnMethod.Invoke(attackerSide, new object[] { spawnAttackers });
+                            if (troop.Character == null) continue;
+                            int healthy = troop.Number - troop.WoundedNumber;
+                            if (healthy <= 0) continue;
+                            _selectedTroops.Add(troop.Character.StringId);
                         }
                     }
+
+                    customAllocationConditions = (descriptor, party) =>
+                    {
+                        try
+                        {
+                            CharacterObject troop = party.Troops[descriptor].Troop;
+                            if (troop == null) return false;
+                            return _selectedTroops.Contains(troop.StringId);
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    };
                 }
                 catch (Exception ex)
                 {
                     InformationManager.DisplayMessage(
-                        new InformationMessage("ChooseYourTroops Error at MissionAgentSpawnLogic Postfix"));
-                    _setupSide = false;
+                        new InformationMessage($"CYT AllocateTroops Error:\n{ex}"));
                 }
             }
         }
+    }
+
+    [HarmonyPatch(typeof(PlayerEncounter), "FinishEncounterInternal")]
+    private static class PlayerEncounterPrefix
+    {
+        [HarmonyPrefix]
+        private static void Prefix()
+        {
+            EncounterGameMenuBehavior.AllocateTroopsPatch.Reset();
+            _actualTroopRoster = null;
+            _playerSide = BattleSideEnum.None;
+            _setupSide = false;
+            _haveChosenTroops = false;
+            _playerArmySize = 0;
+            _enemyArmySize = 0;
+            _initialPlayerSpawn = 0;
+        }
+    }
+
+    // ── MUDANÇA: MissionAgentSpawnLogic → DefaultBattleMissionAgentSpawnLogic ──
+    [HarmonyPatch(typeof(DefaultBattleMissionAgentSpawnLogic), "AfterStart")]
+    private static class AfterStartPostfix
+    {
+        [HarmonyPostfix]
+        private static void Postfix(DefaultBattleMissionAgentSpawnLogic __instance)
+        {
+            if (_haveChosenTroops) _setupSide = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(LordsHallFightMissionController), "OnCreated")]
+    private static class InitializeMissionPrefix
+    {
+        [HarmonyPrefix]
+        private static void Prefix()
+        {
+            if (_setupSide)
+            {
+                _setupSide = false;
+                _haveChosenTroops = false;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Mission), "OnBattleSideDeployed")]
+    private static class OnBattleSideDeployedPostfix
+    {
+        [HarmonyPostfix]
+        private static void Postfix(BattleSideEnum side)
+        {
+            if (side == _playerSide)
+                _playerArmySize = 0;
+            else
+                _enemyArmySize = 0;
+        }
+    }
+
+    private static int EnemyInitialSpawn =>
+        _enemyArmySize <= ChooseYourTroopsConfig.CurrentBattleSizeLimit - _initialPlayerSpawn
+            ? _enemyArmySize
+            : ChooseYourTroopsConfig.CurrentBattleSizeLimit - _initialPlayerSpawn;
     
+    /** Used to set the initial spawn of the player or the enemy taking into account if troops with mount should be counted as two */
+    private static int GetEnemyInitialSpawn(IEnumerable<FlattenedTroopRosterElement> troops)
+    {
+        var playerInitialAgents = 0;
+        foreach (var flattenedTroopRosterElement in _actualTroopRoster.ToFlattenedRoster())
+            playerInitialAgents += DoesTroopCountByTwo(flattenedTroopRosterElement.Troop) ? 2 : 1;
+
+        var maxAgents = ChooseYourTroopsConfig.CurrentBattleSizeLimit - playerInitialAgents;
+        var finalAmount = 0;
+        var totalAgents = 0;
+
+        for (var i = 0; i < troops.Count(); i++)
+        {
+            var currentAgents = DoesTroopCountByTwo(troops.ElementAt(i).Troop) ? 2 : 1;
+            if (totalAgents + currentAgents > maxAgents) break;
+            totalAgents += currentAgents;
+            finalAmount += 1;
+        }
+
+        return finalAmount;
+    }
+
+    // ── MUDANÇA: substituído MissionSideType (inner class MissionSide)
+    //            por MissionBattleSideSpawnContext (classe pública separada) ──
+    private static readonly Type MissionBattleSideSpawnContextType =
+        AccessTools.TypeByName("TaleWorlds.MountAndBlade.MissionBattleSideSpawnContext");
+
+    // ── MUDANÇA: alvo do patch agora é DefaultBattleMissionAgentSpawnLogic.Init (privado) ──
+    [HarmonyPatch(typeof(DefaultBattleMissionAgentSpawnLogic), "Init")]
+    private static class DefaultBattleMissionAgentSpawnLogicInitPostfix
+    {
+        [HarmonyPostfix]
+        private static void Postfix(
+            bool spawnDefenders,
+            bool spawnAttackers,
+            in MissionSpawnSettings reinforcementSpawnSettings,
+            DefaultBattleMissionAgentSpawnLogic __instance)
+        {
+            try
+            {
+                if (!_haveChosenTroops) return;
+
+                // ── MUDANÇA: _missionSides → _battleSideSpawnContexts ──
+                var battleSideSpawnContextsField = AccessTools.Field(
+                    typeof(DefaultBattleMissionAgentSpawnLogic), "_battleSideSpawnContexts");
+                var battleSideSpawnContexts = battleSideSpawnContextsField.GetValue(__instance) as Array;
+
+                var phasesField = AccessTools.Field(
+                    typeof(DefaultBattleMissionAgentSpawnLogic), "_phases");
+                var phasesArray = (object[])phasesField.GetValue(__instance);
+
+                var enemyInitialSpawnCount = _initialPlayerSpawn;
+
+                for (var i = 0; i < phasesArray.Length; i++)
+                {
+                    var list = Enumerable.Cast<object>((IEnumerable)phasesArray[i]).ToList();
+                    var initialSpawnNumberProp = AccessTools.Field(list[0].GetType(), "InitialSpawnNumber");
+
+                    var isPlayerSide = i == 0
+                        ? _playerSide == BattleSideEnum.Defender
+                        : _playerSide == BattleSideEnum.Attacker;
+
+                    int currentInitialSpawn;
+
+                    if (isPlayerSide)
+                    {
+                        currentInitialSpawn = _initialPlayerSpawn;
+                    }
+                    else
+                    {
+                        if (ChooseYourTroopsConfig.Instance is { SupportForMaximumTroops: true })
+                        {
+                            // ── MUDANÇA: acessa _troopSupplier via MissionBattleSideSpawnContext ──
+                            var sideSpawnContext = battleSideSpawnContexts!.GetValue(i);
+                            
+                            var troopSupplier = (PartyGroupTroopSupplier)AccessTools
+                                .Field(MissionBattleSideSpawnContextType, "_troopSupplier")
+                                .GetValue(sideSpawnContext);
+                            
+                            var partyGroup = (MapEventSide)AccessTools
+                                .Property(typeof(PartyGroupTroopSupplier), "PartyGroup")
+                                .GetValue(troopSupplier);
+                            
+                            var readyTroopsPriorityList =
+                                (List<ValueTuple<FlattenedTroopRosterElement, MapEventParty, float>>)AccessTools
+                                    .Field(typeof(MapEventSide), "_readyTroopsPriorityList")
+                                    .GetValue(partyGroup);
+                            
+                            readyTroopsPriorityList =
+                                readyTroopsPriorityList.OrderByDescending(x => x.Item3).ToList();
+                            
+                            currentInitialSpawn =
+                                GetEnemyInitialSpawn(readyTroopsPriorityList.Select(item => item.Item1));
+                        }
+                        else
+                        {
+                            currentInitialSpawn = EnemyInitialSpawn;
+                        }
+
+                        enemyInitialSpawnCount = currentInitialSpawn;
+                    }
+
+                    initialSpawnNumberProp.SetValue(list[0], currentInitialSpawn);
+                    AccessTools.Field(list[0].GetType(), "RemainingSpawnNumber").SetValue(list[0],
+                        isPlayerSide
+                            ? _playerArmySize - _initialPlayerSpawn
+                            : _enemyArmySize - EnemyInitialSpawn);
+                }
+
+                // ── MUDANÇA: re-aplica SetSpawnTroops via _battleSideSpawnContexts ──
+                if (battleSideSpawnContexts != null)
+                {
+                    var defenderSide = battleSideSpawnContexts.GetValue(0);
+                    var attackerSide = battleSideSpawnContexts.GetValue(1);
+                    var setSpawnMethod = AccessTools.Method(defenderSide!.GetType(), "SetSpawnTroops");
+                    setSpawnMethod.Invoke(defenderSide, new object[] { spawnDefenders });
+                    setSpawnMethod.Invoke(attackerSide, new object[] { spawnAttackers });
+                }
+            }
+            catch (Exception ex)
+            {
+                InformationManager.DisplayMessage(
+                    new InformationMessage("ChooseYourTroops Error at DefaultBattleMissionAgentSpawnLogic Init Postfix"));
+                _setupSide = false;
+            }
+        }
+    }
 }
 
 public class SubModule : MBSubModuleBase

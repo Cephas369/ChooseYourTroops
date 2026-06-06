@@ -3,6 +3,7 @@ using SandBox.Missions.MissionLogics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using TaleWorlds.CampaignSystem.MapEvents;
@@ -14,8 +15,9 @@ namespace ChooseYourTroops
     [HarmonyPatch(typeof(SandBoxBattleMissionSpawnHandler), "AfterStart")]
     class SandBoxBattleMissionSpawnHandlerPatch
     {
+        private static MethodInfo CreateSandBoxBattleWaveSpawnSettingsMethod = AccessTools.Method(typeof(SandBoxMissionSpawnHandler), "CreateSandBoxBattleWaveSpawnSettings");
         [HarmonyPrefix]
-        static bool Prefix(ref MissionAgentSpawnLogic ____missionAgentSpawnLogic, ref MapEvent ____mapEvent)
+        static bool Prefix(ref DefaultBattleMissionAgentSpawnLogic ____missionAgentSpawnLogic, ref MapEvent ____mapEvent)
         {
             if (____mapEvent != null)
             {
@@ -39,9 +41,9 @@ namespace ChooseYourTroops
                     ____missionAgentSpawnLogic.SetSpawnHorses(BattleSideEnum.Defender, !Mission.Current.IsSiegeBattle);
                     ____missionAgentSpawnLogic.SetSpawnHorses(BattleSideEnum.Attacker, !Mission.Current.IsSiegeBattle);
 
-                    MissionSpawnSettings spawnSettings = MissionSpawnSettings.CreateDefaultSpawnSettings();
-                    spawnSettings.DefenderAdvantageFactor = defenderAdvantage;
 
+                    MissionSpawnSettings spawnSettings = (MissionSpawnSettings)CreateSandBoxBattleWaveSpawnSettingsMethod.Invoke(null, new object[] {});
+                    spawnSettings.DefenderAdvantageFactor = defenderAdvantage;
 
                     ____missionAgentSpawnLogic.InitWithSinglePhase(numberOfInvolvedMen, numberOfInvolvedMen2, defenderInitialSpawn, attackerInitialSpawn, spawnDefenders: true, spawnAttackers: true, in spawnSettings);
                     return false;
@@ -56,7 +58,7 @@ namespace ChooseYourTroops
     class SandBoxSiegeMissionSpawnHandlerPatch
     {
         [HarmonyPrefix]
-        static bool Prefix(ref MissionAgentSpawnLogic ____missionAgentSpawnLogic, ref MapEvent ____mapEvent)
+        static bool Prefix(ref DefaultBattleMissionAgentSpawnLogic ____missionAgentSpawnLogic, ref MapEvent ____mapEvent)
         {
             if (____mapEvent != null)
             {

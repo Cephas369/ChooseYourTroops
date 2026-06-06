@@ -5,7 +5,7 @@
   </tags>
   <strings>
     <string id="troops_selected_text" text="Troops selected!" />
-    <string id="select_your_troops_text" text="Select troops." />
+    <string id="select_your_troops_text" text="Select troops ({SELECTED_AMOUNT} selected)." />
 	<string id="cyt_initial_troops" text="Initial Troops" />
 	<string id="cyt_chosen_troops" text="Chosen Troops" />
 	  <string id="cyt_order_by_tier" text="Order by tier" />
@@ -16,5 +16,7 @@
 	  <string id="select_your_troops_tooltip" text="There is only one person or less on your party." />
 	  <string id="max_battle_size_support_option" text="Support for maximum battle size mods (READ DESCRIPTION)" />
 	  <string id="max_battle_size_support_option_description" text="Allows to choose the maximum troops allowed by engine in battle (2040). (OBS: it only increases it in the troops selection menu, another mod is required to handle this in battle like BattleSize Resized)" />
+	  <string id="cyt_automatic_selection" text="Seleção Automática" />
+	  <string id="cyt_dismiss_selection" text="Dismiss Selection" />
   </strings>
 </base>
