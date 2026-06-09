@@ -69,20 +69,58 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
         
         Campaign.Current.CurrentMenuContext.Refresh();
     }
+    
+    private static TroopRoster GetCurrentPlayerTroopRoster()
+    {
+        var playerTroopRoster = MobileParty.MainParty.MemberRoster;
 
+        if (MobileParty.MainParty.Army != null &&
+            MobileParty.MainParty.Army.LeaderParty == MobileParty.MainParty)
+        {
+            playerTroopRoster = TroopRoster.CreateDummyTroopRoster();
+            foreach (var party in MobileParty.MainParty.Army.Parties)
+            {
+                if (!MobileParty.MainParty.Army.DoesLeaderPartyAndAttachedPartiesContain(party))
+                {
+                    continue;
+                }
+                
+                playerTroopRoster.Add(party.MemberRoster);
+            }
+        }
+        else if ((PlayerEncounter.Battle != null &&
+                  PlayerEncounter.Battle.PartiesOnSide(_playerSide).Count > 1) ||
+                 (PlayerSiege.BesiegedSettlement != null &&
+                  PlayerSiege.PlayerSiegeEvent.GetSiegeEventSide(PlayerSiege.PlayerSide)
+                      .GetInvolvedPartiesForEventType().Count() > 1 && MobileParty.MainParty.Army == null))
+        {
+            playerTroopRoster = TroopRoster.CreateDummyTroopRoster();
+                
+            var partiesOnPlayerSide = PlayerEncounter.Battle != null
+                ? PlayerEncounter.Battle.PartiesOnSide(_playerSide).Select(x => x.Party).ToList()
+                : PlayerSiege.PlayerSiegeEvent.GetSiegeEventSide(PlayerSiege.PlayerSide)
+                    .GetInvolvedPartiesForEventType().ToList();
+                
+            foreach (var party in partiesOnPlayerSide) 
+                playerTroopRoster.Add(party.MemberRoster);
+        }
+
+        return playerTroopRoster;
+    }
+    
     private static void CheckTroopRoster()
     {
         if (_actualTroopRoster == null)
             return;
 
-        var partyRoster = MobileParty.MainParty.MemberRoster.GetTroopRoster();
+        var playerRoster = GetCurrentPlayerTroopRoster().GetTroopRoster();
         var actualRoster = _actualTroopRoster.GetTroopRoster();
 
         _actualTroopRoster.Clear();
 
         foreach (var actualTroop in actualRoster)
         {
-            var partyTroop = partyRoster.FirstOrDefault(x =>
+            var partyTroop = playerRoster.FirstOrDefault(x =>
                 x.Character?.StringId == actualTroop.Character?.StringId);
 
             if (partyTroop.Character == null && actualTroop.Character?.HeroObject?.PartyBelongedTo?.Army == MobileParty.MainParty?.Army)
@@ -162,50 +200,30 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
             return true;
         }
 
+        private static bool SelectTroopsCondition(MenuCallbackArgs args)
+        {
+            GameTexts.SetVariable("SELECTED_AMOUNT", _setupSide != null && _actualTroopRoster != null ? _actualTroopRoster.TotalManCount : 0);
+            args.optionLeaveType = GameMenuOption.LeaveType.TroopSelection;
+            args.IsEnabled = true;
+            var condition = IsPlayerArmyBig();
+            if (_playerArmySize <= 1)
+            {
+                args.IsEnabled = false;
+                args.Tooltip = new TextObject("{=select_your_troops_tooltip}There is only one person or less on your party.");
+            }
+            return condition;
+        }
+
         public static void AddGamesMenu(CampaignGameStarter gameSystemInitializer)
         {
             gameSystemInitializer.AddGameMenuOption("encounter", "select_troops",
-                "{=select_your_troops_text}Select troops ({SELECTED_AMOUNT} selected).", delegate(MenuCallbackArgs args)
-                {
-                    GameTexts.SetVariable("SELECTED_AMOUNT", _setupSide != null && _actualTroopRoster != null ? _actualTroopRoster.TotalManCount : 0);
-                    args.optionLeaveType = GameMenuOption.LeaveType.TroopSelection;
-                    args.IsEnabled = true;
-                    var condition = IsPlayerArmyBig();
-                    if (_playerArmySize <= 1)
-                    {
-                        args.IsEnabled = false;
-                        args.Tooltip = new TextObject("{=select_your_troops_tooltip}There is only one person or less on your party.");
-                    }
-                    return condition;
-                }, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
+                "{=select_your_troops_text}Select troops ({SELECTED_AMOUNT} selected).", SelectTroopsCondition, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
 
             gameSystemInitializer.AddGameMenuOption("naval_storyline_encounter", "select_troops",
-                "{=select_your_troops_text}Select your troops.".ToString(), delegate(MenuCallbackArgs args)
-                {
-                    args.optionLeaveType = GameMenuOption.LeaveType.TroopSelection;
-                    args.IsEnabled = true;
-                    var condition = IsPlayerArmyBig();
-                    if (_playerArmySize <= 1)
-                    {
-                        args.IsEnabled = false;
-                        args.Tooltip = new TextObject("{=select_your_troops_tooltip}There is only one person or less on your party.");
-                    }
-                    return condition;
-                }, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
+                "{=select_your_troops_text}Select troops ({SELECTED_AMOUNT} selected).".ToString(), SelectTroopsCondition, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
 
             gameSystemInitializer.AddGameMenuOption("menu_siege_strategies", "select_troops_menu_siege_strategies",
-                "{=select_your_troops_text}Select your troops.", delegate(MenuCallbackArgs args)
-                {
-                    args.optionLeaveType = GameMenuOption.LeaveType.TroopSelection;
-                    args.IsEnabled = true;
-                    var condition = IsPlayerArmyBig();
-                    if (_playerArmySize <= 1)
-                    {
-                        args.IsEnabled = false;
-                        args.Tooltip = new TextObject("{=select_your_troops_tooltip}There is only one person or less on your party.");
-                    }
-                    return condition;
-                }, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
+                "{=select_your_troops_text}Select troops ({SELECTED_AMOUNT} selected).", SelectTroopsCondition, new GameMenuOption.OnConsequenceDelegate(OpenTroopsSelector));
         }
 
         private static bool CanChangeStatusOfTroop(CharacterObject character)
@@ -260,27 +278,7 @@ public class ChooseYourTroopsBehavior : CampaignBehaviorBase
                         initialPlayerTroops = ChooseYourTroopsConfig.CurrentBattleSizeLimit / 2;
                 }
 
-            var armyRoster = MobileParty.MainParty.MemberRoster;
-
-            if (MobileParty.MainParty.Army != null &&
-                MobileParty.MainParty.Army.LeaderParty.Name == MobileParty.MainParty.Name)
-            {
-                armyRoster = TroopRoster.CreateDummyTroopRoster();
-                foreach (var party in MobileParty.MainParty.Army.Parties) armyRoster.Add(party.MemberRoster);
-            }
-            else if ((PlayerEncounter.Battle != null &&
-                      PlayerEncounter.Battle.PartiesOnSide(_playerSide).Count > 1) ||
-                     (PlayerSiege.BesiegedSettlement != null &&
-                      PlayerSiege.PlayerSiegeEvent.GetSiegeEventSide(PlayerSiege.PlayerSide)
-                          .GetInvolvedPartiesForEventType().Count() > 1 && MobileParty.MainParty.Army == null))
-            {
-                armyRoster = TroopRoster.CreateDummyTroopRoster();
-                var PartiesOnPlayerSide = PlayerEncounter.Battle != null
-                    ? PlayerEncounter.Battle.PartiesOnSide(_playerSide).Select(x => x.Party).ToList()
-                    : PlayerSiege.PlayerSiegeEvent.GetSiegeEventSide(PlayerSiege.PlayerSide)
-                        .GetInvolvedPartiesForEventType().ToList();
-                foreach (var party in PartiesOnPlayerSide) armyRoster.Add(party.MemberRoster);
-            }
+            var armyRoster = GetCurrentPlayerTroopRoster();
 
             _initialPlayerSpawn = initialPlayerTroops;
 
@@ -593,10 +591,16 @@ public class SubModule : MBSubModuleBase
         _harmony.PatchAll();
     }
 
-    public override void OnGameLoaded(Game game, object initializerObject)
+    protected override void OnGameStart(Game game, IGameStarter gameStarterObject)
     {
-        base.OnCampaignStart(game, initializerObject);
-        var gameStarter = (CampaignGameStarter)initializerObject;
-        gameStarter.AddBehavior(new ChooseYourTroopsBehavior());
+        base.OnCampaignStart(game, gameStarterObject);
+
+        if (gameStarterObject is not CampaignGameStarter campaignGameStarter)
+        {
+            return;
+        }
+        
+        campaignGameStarter.AddBehavior(new ChooseYourTroopsBehavior());
     }
+    
 }
