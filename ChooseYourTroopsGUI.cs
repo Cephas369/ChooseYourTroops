@@ -326,6 +326,78 @@ namespace ChooseYourTroops
             }
         }
 
+        public void ExecuteSelectAll()
+        {
+            ExecuteClearSelection();
+
+            FormationClass[] formationClasses = new[]
+            {
+                FormationClass.Infantry,
+                FormationClass.Ranged,
+                FormationClass.Cavalry,
+                FormationClass.HorseArcher
+            };
+
+            List<FormationClass> activeFormationClasses = formationClasses
+                .Where(HasSelectableTroopsForFormationClass)
+                .ToList();
+
+            if (activeFormationClasses.Count == 0)
+                return;
+
+            while (true)
+            {
+                List<TroopSelectionItemVM> troopsToAdd = new(activeFormationClasses.Count);
+                int roundCost = 0;
+
+                foreach (FormationClass formationClass in activeFormationClasses)
+                {
+                    TroopSelectionItemVM troopToAdd = GetSelectableTroopForFormationClass(formationClass);
+                    if (troopToAdd == null)
+                    {
+                        troopsToAdd.Clear();
+                        break;
+                    }
+
+                    int troopCost = GetTroopCost(troopToAdd);
+                    if (_currentTotalSelectedTroopCount + roundCost + troopCost > _maxSelectableTroopCount)
+                    {
+                        troopsToAdd.Clear();
+                        break;
+                    }
+
+                    troopsToAdd.Add(troopToAdd);
+                    roundCost += troopCost;
+                }
+
+                if (troopsToAdd.Count == 0)
+                    break;
+
+                foreach (TroopSelectionItemVM troopSelectionItemVM in troopsToAdd)
+                {
+                    OnAddCount(troopSelectionItemVM);
+                }
+            }
+
+            // Greedy fill: add individual troops (in class order) to use any remaining capacity
+            // that could not be filled by a full balanced round.
+            foreach (FormationClass formationClass in activeFormationClasses)
+            {
+                while (_currentTotalSelectedTroopCount < _maxSelectableTroopCount)
+                {
+                    TroopSelectionItemVM troopToAdd = GetSelectableTroopForFormationClass(formationClass);
+                    if (troopToAdd == null)
+                        break;
+
+                    int troopCost = GetTroopCost(troopToAdd);
+                    if (_currentTotalSelectedTroopCount + troopCost > _maxSelectableTroopCount)
+                        break;
+
+                    OnAddCount(troopToAdd);
+                }
+            }
+        }
+
         public void ExecuteClearSelection()
         {
             Troops.ApplyActionOnAllItems(delegate (TroopSelectionItemVM troopItem)
